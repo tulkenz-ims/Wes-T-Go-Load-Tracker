@@ -1,6 +1,6 @@
 {
-  "name": "Wes-T-Go Load Tracker",
-  "short_name": "WTG Loads",
+  "name": "WTG Tracker",
+  "short_name": "WTG Tracker",
   "description": "Offline load, TLO/manifest, and fuel BOL photo tracker for Wes-T-Go drivers.",
   "start_url": "./index.html",
   "scope": "./",
