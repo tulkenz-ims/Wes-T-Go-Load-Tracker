@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="theme-color" content="#2A4CB4">
 <title>Wes-T-Go Load Tracker</title>
 <link rel="manifest" href="manifest.json">
@@ -457,6 +457,20 @@ async function openCamera(type) {
   document.body.appendChild(overlay);
   const video = document.getElementById('cameraVideo');
   video.srcObject = cameraStream;
+
+  // Some Android browsers overlap the address bar over fixed-position content
+  // when it re-appears after the camera starts. Force the overlay to track
+  // the actual visible viewport height so the shutter button never gets hidden.
+  function fitToVisualViewport() {
+    if (window.visualViewport) {
+      overlay.style.height = window.visualViewport.height + 'px';
+    }
+  }
+  fitToVisualViewport();
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', fitToVisualViewport);
+    overlay._vvHandler = fitToVisualViewport;
+  }
 }
 
 function closeCamera() {
@@ -465,7 +479,12 @@ function closeCamera() {
     cameraStream = null;
   }
   const overlay = document.getElementById('cameraOverlay');
-  if (overlay) overlay.remove();
+  if (overlay) {
+    if (overlay._vvHandler && window.visualViewport) {
+      window.visualViewport.removeEventListener('resize', overlay._vvHandler);
+    }
+    overlay.remove();
+  }
 }
 
 function capturePhoto() {
