@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="theme-color" content="#2A4CB4">
-<title>Wes-T-Go Load Tracker</title>
+<title>WTG Tracker</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.png">
 <link rel="apple-touch-icon" href="icon.png">
@@ -277,6 +277,13 @@
     flex-shrink: 0; width: 56px;
   }
   .delete-photo-btn svg { width: 20px; height: 20px; }
+  .share-photo-btn {
+    background: var(--blue); color: var(--white); border: none;
+    border-radius: var(--radius); padding: 16px; font-family: inherit; font-size: 16px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;
+    flex-shrink: 0; width: 56px;
+  }
+  .share-photo-btn svg { width: 20px; height: 20px; }
   .sync-pill {
     font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px;
   }
@@ -308,12 +315,73 @@
     opacity: 0; transform: translateY(10px); transition: all 0.25s ease; pointer-events: none;
   }
   .toast.show { opacity: 1; transform: translateY(0); }
+
+  /* ---- Schedule / calendar ---- */
+  .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .cal-header button {
+    background: var(--white); border: 2px solid var(--gray-light); border-radius: 10px;
+    width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .cal-header button svg { width: 18px; height: 18px; color: var(--blue); }
+  .cal-header .cal-title { font-size: 17px; font-weight: 800; }
+  .cal-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; font-size: 11px; font-weight: 700; color: var(--gray); }
+  .cal-legend span { display: flex; align-items: center; gap: 5px; }
+  .cal-legend .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .cal-dow { text-align: center; font-size: 10px; font-weight: 800; color: var(--gray); padding-bottom: 4px; text-transform: uppercase; }
+  .cal-day {
+    aspect-ratio: 1; border-radius: 10px; background: var(--white); border: 1px solid var(--gray-light);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: var(--black); cursor: pointer; position: relative; gap: 2px;
+  }
+  .cal-day.empty { visibility: hidden; cursor: default; }
+  .cal-day.off-day { background: #EEF1FB; border-color: #C7D2EE; }
+  .cal-day.pto-day { background: #FDEFE0; border-color: #F0C48A; }
+  .cal-day.today { outline: 2px solid var(--blue); outline-offset: -2px; }
+  .cal-day .cal-dot-row { display: flex; gap: 2px; }
+  .cal-day .cal-dot { width: 5px; height: 5px; border-radius: 50%; }
+  .cal-day .cal-dot.pay { background: var(--green); }
+  .cal-day .cal-dot.pto { background: #C9791C; }
+
+  /* ---- Day detail sheet ---- */
+  .day-sheet {
+    position: fixed; inset: 0; background: rgba(20,22,26,0.5); z-index: 55;
+    display: flex; align-items: flex-end;
+  }
+  .day-sheet-inner {
+    background: var(--gray-bg); width: 100%; border-radius: 20px 20px 0 0;
+    max-height: 85vh; overflow-y: auto; padding: 20px 20px calc(24px + var(--safe-bottom)) 20px;
+  }
+  .day-sheet-title { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
+  .day-sheet-status { font-size: 14px; font-weight: 700; margin-bottom: 16px; }
+  .day-sheet-status.off { color: var(--blue); }
+  .day-sheet-status.work { color: var(--gray); }
+  .day-sheet-status.pay { color: var(--green-dark); }
+  .pto-card {
+    background: var(--white); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; border: 1px solid var(--gray-light);
+  }
+  .pto-card-range { font-weight: 800; font-size: 14px; margin-bottom: 6px; }
+  .pto-card-notes { font-size: 13px; color: var(--gray); margin-bottom: 10px; }
+  .pto-card-photo { width: 100%; max-width: 200px; border-radius: 10px; cursor: pointer; margin-bottom: 10px; display: block; }
+  .add-pto-btn {
+    width: 100%; background: var(--blue); color: var(--white); border: none;
+    border-radius: var(--radius); padding: 16px; font-family: inherit; font-size: 15px; font-weight: 800; cursor: pointer;
+  }
+  .close-sheet-link {
+    display: block; text-align: center; padding: 14px; color: var(--gray); font-weight: 600;
+    font-size: 14px; background: none; border: none; width: 100%; font-family: inherit; cursor: pointer;
+  }
+  .pto-photo-upload {
+    border: 2px dashed var(--gray); border-radius: 10px; padding: 24px; text-align: center;
+    color: var(--gray); font-weight: 700; font-size: 13px; cursor: pointer; margin-bottom: 16px;
+  }
+  .pto-photo-upload img { max-width: 100%; max-height: 160px; border-radius: 8px; }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>Wes-T-Go Loads</h1>
+    <h1>WTG Tracker</h1>
     <div class="status" id="statusPill">
       <span class="dot" id="statusDot"></span>
       <span id="statusText">Online</span>
@@ -333,6 +401,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>
       Trash
     </button>
+    <button id="navSchedule" onclick="showScreen('schedule')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
+      Schedule
+    </button>
   </nav>
 </div>
 <div class="toast" id="toast"></div>
@@ -344,6 +416,15 @@
 const SUPABASE_URL = 'https://ltdzvjibbajimftlmjhb.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0ZHp2amliYmFqaW1mdGxtamhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk4NzY2NjAsImV4cCI6MjEwNTQ1MjY2MH0.phWnBHheoYtfxJMmGewMvhIzO4mGmuxjvGfwjuTrDdc';
 const STORE_LOCATIONS = ["Alsup's", "Kent Quik", "Other"];
+
+// Work rotation: 6 days on, 2 days off. Anchor is the first day of a known off period.
+const WORK_OFF_ANCHOR = '2026-09-14'; // first of two off-days
+const WORK_CYCLE_LENGTH = 8; // 6 on + 2 off
+const WORK_OFF_DAYS_IN_CYCLE = 2; // days 0 and 1 of each cycle are off
+
+// Payday: every other Thursday. Anchor is a confirmed payday.
+const PAYDAY_ANCHOR = '2026-09-10';
+const PAYDAY_INTERVAL_DAYS = 14;
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -407,6 +488,8 @@ let draftPhotos = []; // { blob, type, url }
 let activePhotoType = 'tlo';
 let editContext = null; // { source: 'pending'|'remote', id, record }
 let currentViewerDeleteCtx = null;
+let calendarViewDate = new Date(); // which month is currently shown
+let ptoEditContext = null; // { id (or null for new), start_date, end_date, notes, existingPhotoPath, newPhotoBlob }
 
 /* =========================================================
    UI HELPERS
@@ -435,9 +518,11 @@ function showScreen(screen) {
   document.getElementById('navHome').classList.toggle('active', screen === 'home');
   document.getElementById('navLoads').classList.toggle('active', screen === 'loads');
   document.getElementById('navTrash').classList.toggle('active', screen === 'trash');
+  document.getElementById('navSchedule').classList.toggle('active', screen === 'schedule');
   if (screen === 'home') renderHome();
   if (screen === 'loads') renderLoadsList();
   if (screen === 'trash') renderTrashScreen();
+  if (screen === 'schedule') renderScheduleScreen();
 }
 
 /* =========================================================
@@ -760,6 +845,9 @@ function openPhotoViewer(imageUrl, filename, deleteCtx) {
     </div>
     <div class="photo-viewer-bottom">
       <div class="viewer-btn-row">
+        <button class="share-photo-btn" id="shareBtn" onclick="sharePhoto('${imageUrl}', '${filename}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+        </button>
         <button class="download-btn" id="downloadBtn" onclick="downloadPhoto('${imageUrl}', '${filename}')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
           Download
@@ -805,6 +893,32 @@ async function deleteCurrentViewerPhoto() {
   closePhotoViewer();
   if (currentScreen === 'edit') renderEditScreen();
   else if (currentScreen === 'loads') renderLoadsList();
+}
+
+async function sharePhoto(imageUrl, filename) {
+  const btn = document.getElementById('shareBtn');
+  try {
+    const response = await fetch(imageUrl);
+    const blob = await response.blob();
+    const file = new File([blob], filename || 'photo.jpg', { type: blob.type || 'image/jpeg' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: 'WTG Tracker photo'
+      });
+    } else if (navigator.share) {
+      // Some browsers support share() but not file sharing — fall back to a link share
+      await navigator.share({ title: 'WTG Tracker photo', url: imageUrl });
+    } else {
+      showToast('Sharing not supported on this browser — use Download instead');
+    }
+  } catch (err) {
+    // AbortError just means the user cancelled the share sheet — not a real error
+    if (err.name !== 'AbortError') {
+      showToast('Share failed: ' + err.message);
+    }
+  }
 }
 
 async function downloadPhoto(imageUrl, filename) {
@@ -1170,18 +1284,21 @@ async function renderTrashScreen() {
 
   let trashedRemoteLoads = [];
   let trashedRemotePhotos = [];
+  let trashedPto = [];
   if (navigator.onLine) {
     try {
       const { data: loads } = await sb.from('loads').select('*').not('deleted_at', 'is', null).order('deleted_at', { ascending: false });
       trashedRemoteLoads = loads || [];
       const { data: photos } = await sb.from('load_photos').select('*, loads(load_number, deleted_at)').not('deleted_at', 'is', null);
       trashedRemotePhotos = (photos || []).filter(p => !p.loads || !p.loads.deleted_at);
+      const { data: pto } = await sb.from('pto_entries').select('*').not('deleted_at', 'is', null).order('deleted_at', { ascending: false });
+      trashedPto = pto || [];
     } catch (err) {
       console.error('Failed to fetch trash', err);
     }
   }
 
-  const totalCount = trashedPendingLoads.length + trashedPendingPhotos.length + trashedRemoteLoads.length + trashedRemotePhotos.length;
+  const totalCount = trashedPendingLoads.length + trashedPendingPhotos.length + trashedRemoteLoads.length + trashedRemotePhotos.length + trashedPto.length;
   if (totalCount === 0) {
     main.innerHTML = `
       <div class="empty-state">
@@ -1268,6 +1385,26 @@ async function renderTrashScreen() {
     `;
   });
 
+  trashedPto.forEach(p => {
+    const rangeLabel = p.start_date === p.end_date
+      ? keyToDate(p.start_date).toLocaleDateString()
+      : `${keyToDate(p.start_date).toLocaleDateString()} – ${keyToDate(p.end_date).toLocaleDateString()}`;
+    html += `
+      <div class="load-card">
+        <div class="load-card-top">
+          <div>
+            <div class="load-card-title">PTO: ${rangeLabel}</div>
+            <div class="load-card-date">Deleted ${new Date(p.deleted_at).toLocaleString()}</div>
+          </div>
+        </div>
+        <div class="load-card-actions">
+          <button class="edit-action" onclick="restorePto('${p.id}')">Restore</button>
+          <button class="delete-action" onclick="permanentlyDeletePto('${p.id}', ${p.confirmation_photo_path ? `'${p.confirmation_photo_path}'` : 'null'})">Delete Forever</button>
+        </div>
+      </div>
+    `;
+  });
+
   main.innerHTML = html;
 }
 
@@ -1344,6 +1481,366 @@ async function permanentlyDeletePhoto(source, refId, index, storagePath) {
       await sb.from('load_photos').delete().eq('id', refId);
     }
     showToast('Photo permanently deleted');
+  } catch (err) {
+    showToast('Delete failed: ' + err.message);
+  }
+  renderTrashScreen();
+}
+
+/* =========================================================
+   SCHEDULE — work/off rotation, payday, and PTO calendar
+   ========================================================= */
+function dateToKey(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function keyToDate(key) {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function daysBetween(fromKey, toDate) {
+  const from = keyToDate(fromKey);
+  const fromUTC = Date.UTC(from.getFullYear(), from.getMonth(), from.getDate());
+  const toUTC = Date.UTC(toDate.getFullYear(), toDate.getMonth(), toDate.getDate());
+  return Math.floor((toUTC - fromUTC) / 86400000);
+}
+
+function isOffDay(date) {
+  const diff = daysBetween(WORK_OFF_ANCHOR, date);
+  const cyclePos = ((diff % WORK_CYCLE_LENGTH) + WORK_CYCLE_LENGTH) % WORK_CYCLE_LENGTH;
+  return cyclePos < WORK_OFF_DAYS_IN_CYCLE;
+}
+
+function isPayday(date) {
+  const diff = daysBetween(PAYDAY_ANCHOR, date);
+  const cyclePos = ((diff % PAYDAY_INTERVAL_DAYS) + PAYDAY_INTERVAL_DAYS) % PAYDAY_INTERVAL_DAYS;
+  return cyclePos === 0;
+}
+
+let _ptoCache = []; // loaded once per schedule screen render
+
+async function renderScheduleScreen() {
+  currentScreen = 'schedule';
+  const main = document.getElementById('main');
+  main.innerHTML = `<div class="empty-state">Loading...</div>`;
+
+  if (navigator.onLine) {
+    try {
+      const { data } = await sb.from('pto_entries').select('*').is('deleted_at', null).order('start_date');
+      _ptoCache = data || [];
+    } catch (err) {
+      console.error('Failed to load PTO', err);
+      _ptoCache = [];
+    }
+  }
+
+  renderCalendarGrid();
+}
+
+function ptoForDate(dateKey) {
+  return _ptoCache.filter(p => dateKey >= p.start_date && dateKey <= p.end_date);
+}
+
+function renderCalendarGrid() {
+  const main = document.getElementById('main');
+  const year = calendarViewDate.getFullYear();
+  const month = calendarViewDate.getMonth();
+  const monthName = calendarViewDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
+  const firstOfMonth = new Date(year, month, 1);
+  const startWeekday = firstOfMonth.getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayKey = dateToKey(new Date());
+
+  let cells = '';
+  for (let i = 0; i < startWeekday; i++) {
+    cells += `<div class="cal-day empty"></div>`;
+  }
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d = new Date(year, month, day);
+    const key = dateToKey(d);
+    const off = isOffDay(d);
+    const pay = isPayday(d);
+    const pto = ptoForDate(key).length > 0;
+    const classes = ['cal-day'];
+    if (off) classes.push('off-day');
+    if (pto) classes.push('pto-day');
+    if (key === todayKey) classes.push('today');
+
+    cells += `
+      <div class="${classes.join(' ')}" onclick="openDaySheet('${key}')">
+        <span>${day}</span>
+        <div class="cal-dot-row">
+          ${pay ? '<span class="cal-dot pay"></span>' : ''}
+          ${pto ? '<span class="cal-dot pto"></span>' : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  const dowLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  main.innerHTML = `
+    <div class="cal-header">
+      <button onclick="changeMonth(-1)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div class="cal-title">${monthName}</div>
+      <button onclick="changeMonth(1)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+    </div>
+    <div class="cal-legend">
+      <span><span class="dot" style="background:#EEF1FB;border:1px solid #C7D2EE"></span> Off day</span>
+      <span><span class="dot" style="background:var(--green)"></span> Payday</span>
+      <span><span class="dot" style="background:#FDEFE0;border:1px solid #F0C48A"></span> PTO</span>
+    </div>
+    <div class="cal-grid">
+      ${dowLabels.map(l => `<div class="cal-dow">${l}</div>`).join('')}
+      ${cells}
+    </div>
+  `;
+}
+
+function changeMonth(delta) {
+  calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + delta, 1);
+  renderCalendarGrid();
+}
+
+function openDaySheet(dateKey) {
+  const d = keyToDate(dateKey);
+  const off = isOffDay(d);
+  const pay = isPayday(d);
+  const ptoEntries = ptoForDate(dateKey);
+  const dayLabel = d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+  let statusHtml = `<div class="day-sheet-status ${off ? 'off' : 'work'}">${off ? 'Off day' : 'Work day'}</div>`;
+  if (pay) statusHtml += `<div class="day-sheet-status pay">💵 Payday</div>`;
+
+  const ptoCards = ptoEntries.map(p => {
+    let photoHtml = '';
+    if (p.confirmation_photo_path) {
+      const { data } = sb.storage.from('load-photos').getPublicUrl(p.confirmation_photo_path);
+      photoHtml = `<img class="pto-card-photo" src="${data.publicUrl}" onclick="openPhotoViewer('${data.publicUrl}', 'pto-confirmation.jpg')">`;
+    }
+    const rangeLabel = p.start_date === p.end_date
+      ? keyToDate(p.start_date).toLocaleDateString()
+      : `${keyToDate(p.start_date).toLocaleDateString()} – ${keyToDate(p.end_date).toLocaleDateString()}`;
+    return `
+      <div class="pto-card">
+        <div class="pto-card-range">PTO: ${rangeLabel}</div>
+        ${p.notes ? `<div class="pto-card-notes">${p.notes}</div>` : ''}
+        ${photoHtml}
+        <div class="load-card-actions">
+          <button class="edit-action" onclick="openPtoEditor('${p.id}')">Edit</button>
+          <button class="delete-action" onclick="deletePto('${p.id}')">Delete</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  const overlay = document.createElement('div');
+  overlay.className = 'day-sheet';
+  overlay.id = 'daySheetOverlay';
+  overlay.innerHTML = `
+    <div class="day-sheet-inner">
+      <div class="day-sheet-title">${dayLabel}</div>
+      ${statusHtml}
+      ${ptoCards}
+      <button class="add-pto-btn" onclick="openPtoEditor(null, '${dateKey}')">+ Add PTO starting this day</button>
+      <button class="close-sheet-link" onclick="closeDaySheet()">Close</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function closeDaySheet() {
+  const overlay = document.getElementById('daySheetOverlay');
+  if (overlay) overlay.remove();
+}
+
+/* =========================================================
+   PTO EDITOR
+   ========================================================= */
+function openPtoEditor(ptoId, defaultDateKey) {
+  closeDaySheet();
+  if (ptoId) {
+    const existing = _ptoCache.find(p => p.id === ptoId);
+    ptoEditContext = {
+      id: ptoId,
+      start_date: existing.start_date,
+      end_date: existing.end_date,
+      notes: existing.notes || '',
+      existingPhotoPath: existing.confirmation_photo_path,
+      newPhotoBlob: null,
+      removeExistingPhoto: false
+    };
+  } else {
+    ptoEditContext = {
+      id: null,
+      start_date: defaultDateKey,
+      end_date: defaultDateKey,
+      notes: '',
+      existingPhotoPath: null,
+      newPhotoBlob: null,
+      removeExistingPhoto: false
+    };
+  }
+  renderPtoEditorSheet();
+}
+
+function renderPtoEditorSheet() {
+  const ctx = ptoEditContext;
+  let photoAreaHtml;
+  if (ctx.newPhotoBlob) {
+    photoAreaHtml = `<div class="pto-photo-upload" onclick="triggerPtoPhotoUpload()"><img src="${URL.createObjectURL(ctx.newPhotoBlob)}"></div>`;
+  } else if (ctx.existingPhotoPath && !ctx.removeExistingPhoto) {
+    const { data } = sb.storage.from('load-photos').getPublicUrl(ctx.existingPhotoPath);
+    photoAreaHtml = `<div class="pto-photo-upload" onclick="triggerPtoPhotoUpload()"><img src="${data.publicUrl}"></div>`;
+  } else {
+    photoAreaHtml = `<div class="pto-photo-upload" onclick="triggerPtoPhotoUpload()">Tap to attach confirmation (screenshot, email, etc.)</div>`;
+  }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'day-sheet';
+  overlay.id = 'ptoEditorOverlay';
+  overlay.innerHTML = `
+    <div class="day-sheet-inner">
+      <div class="day-sheet-title">${ctx.id ? 'Edit PTO' : 'Add PTO'}</div>
+      <div class="field">
+        <label>Start date</label>
+        <input type="date" id="ptoStartDate" value="${ctx.start_date}">
+      </div>
+      <div class="field">
+        <label>End date</label>
+        <input type="date" id="ptoEndDate" value="${ctx.end_date}">
+      </div>
+      <div class="field">
+        <label>Notes (optional)</label>
+        <textarea id="ptoNotes" placeholder="Anything worth noting...">${ctx.notes}</textarea>
+      </div>
+      <div class="field">
+        <label>Confirmation photo (optional)</label>
+        ${photoAreaHtml}
+      </div>
+      <button class="save-btn" onclick="savePto()">Save PTO</button>
+      <button class="cancel-link" onclick="closePtoEditor()">Cancel</button>
+    </div>
+    <input type="file" id="ptoPhotoInput" accept="image/*" style="display:none" onchange="handlePtoPhotoSelected(event)">
+  `;
+  document.body.appendChild(overlay);
+}
+
+function triggerPtoPhotoUpload() {
+  document.getElementById('ptoPhotoInput').click();
+}
+
+function handlePtoPhotoSelected(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  ptoEditContext.newPhotoBlob = file;
+  ptoEditContext.removeExistingPhoto = false;
+  renderPtoEditorSheetInPlace();
+}
+
+function renderPtoEditorSheetInPlace() {
+  // preserve in-progress field values while swapping the photo preview
+  const startVal = document.getElementById('ptoStartDate')?.value;
+  const endVal = document.getElementById('ptoEndDate')?.value;
+  const notesVal = document.getElementById('ptoNotes')?.value;
+  if (startVal) ptoEditContext.start_date = startVal;
+  if (endVal) ptoEditContext.end_date = endVal;
+  if (notesVal !== undefined) ptoEditContext.notes = notesVal;
+  closePtoEditor();
+  renderPtoEditorSheet();
+}
+
+function closePtoEditor() {
+  const overlay = document.getElementById('ptoEditorOverlay');
+  if (overlay) overlay.remove();
+}
+
+async function savePto() {
+  const start_date = document.getElementById('ptoStartDate').value;
+  const end_date = document.getElementById('ptoEndDate').value;
+  const notes = document.getElementById('ptoNotes').value || null;
+
+  if (!start_date || !end_date) {
+    showToast('Start and end dates are required');
+    return;
+  }
+  if (end_date < start_date) {
+    showToast('End date must be on or after start date');
+    return;
+  }
+
+  const ctx = ptoEditContext;
+  try {
+    let photoPath = ctx.existingPhotoPath;
+    if (ctx.removeExistingPhoto) photoPath = null;
+
+    if (ctx.newPhotoBlob) {
+      const path = `pto/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+      const { error: upErr } = await sb.storage.from('load-photos').upload(path, ctx.newPhotoBlob, {
+        contentType: ctx.newPhotoBlob.type || 'image/jpeg'
+      });
+      if (upErr) throw upErr;
+      photoPath = path;
+    }
+
+    if (ctx.id) {
+      const { error } = await sb.from('pto_entries').update({
+        start_date, end_date, notes, confirmation_photo_path: photoPath
+      }).eq('id', ctx.id);
+      if (error) throw error;
+    } else {
+      const { error } = await sb.from('pto_entries').insert({
+        start_date, end_date, notes, confirmation_photo_path: photoPath
+      });
+      if (error) throw error;
+    }
+    showToast('PTO saved');
+  } catch (err) {
+    showToast('Save failed: ' + err.message);
+    return;
+  }
+
+  ptoEditContext = null;
+  closePtoEditor();
+  renderScheduleScreen();
+}
+
+async function deletePto(id) {
+  if (!confirm('Move this PTO entry to Trash? You can restore it later.')) return;
+  try {
+    await sb.from('pto_entries').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+    showToast('PTO moved to Trash');
+  } catch (err) {
+    showToast('Delete failed: ' + err.message);
+  }
+  closeDaySheet();
+  renderScheduleScreen();
+}
+
+async function restorePto(id) {
+  try {
+    await sb.from('pto_entries').update({ deleted_at: null }).eq('id', id);
+    showToast('PTO restored');
+  } catch (err) {
+    showToast('Restore failed: ' + err.message);
+  }
+  renderTrashScreen();
+}
+
+async function permanentlyDeletePto(id, storagePath) {
+  if (!confirm('Permanently delete this PTO entry? This cannot be undone.')) return;
+  try {
+    if (storagePath) {
+      await sb.storage.from('load-photos').remove([storagePath]);
+    }
+    await sb.from('pto_entries').delete().eq('id', id);
+    showToast('PTO permanently deleted');
   } catch (err) {
     showToast('Delete failed: ' + err.message);
   }
