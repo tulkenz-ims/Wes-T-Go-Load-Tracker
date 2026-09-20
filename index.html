@@ -89,9 +89,9 @@
   .cover-edit-badge svg { width: 26px; height: 26px; color: var(--white); }
   .home-actions-row { display: flex; gap: 12px; flex: 0 0 auto; }
   .action-btn {
-    background: var(--blue);
-    color: var(--white);
-    border: none;
+    background: rgba(42,76,180,0.14);
+    color: var(--blue-dark);
+    border: 2px solid rgba(42,76,180,0.3);
     border-radius: var(--radius);
     padding: 14px 10px;
     font-family: inherit;
@@ -112,7 +112,7 @@
     border: 2px solid var(--gray-light);
   }
   .action-btn.upload-variant svg { color: var(--blue); }
-  .action-btn:active { filter: brightness(0.9); }
+  .action-btn:active { filter: brightness(0.95); }
   .action-btn svg { width: 22px; height: 22px; }
 
   .pending-banner {
@@ -360,9 +360,9 @@
   .cal-day-num { font-size: 14px; font-weight: 800; }
   .cal-day-label { font-size: 7px; font-weight: 800; letter-spacing: 0; white-space: nowrap; }
   .cal-day.empty { visibility: hidden; cursor: default; }
-  .cal-day.off-day { background: var(--offday-fill); border-color: var(--offday-fill); color: var(--white); }
-  .cal-day.pay-day { background: var(--green); border-color: var(--green); color: var(--white); }
-  .cal-day.pto-day { background: var(--pto-fill); border-color: var(--pto-fill); color: var(--white); }
+  .cal-day.off-day { background: rgba(76,111,206,0.3); border-color: rgba(76,111,206,0.5); color: var(--blue-dark); }
+  .cal-day.pay-day { background: rgba(30,122,50,0.28); border-color: rgba(30,122,50,0.5); color: var(--green-dark); }
+  .cal-day.pto-day { background: rgba(201,121,28,0.3); border-color: rgba(201,121,28,0.5); color: #8B4F10; }
   .cal-day.today { outline: 3px solid var(--black); outline-offset: -3px; }
 
   /* ---- Day detail sheet ---- */
@@ -1762,13 +1762,13 @@ function renderCalendarGrid() {
     let label = '';
     if (pto && pay) {
       // PTO already means "not working" — combine with payday, no need to also show the plain off-day color
-      inlineStyle = `style="background: linear-gradient(135deg, var(--pto-fill) 50%, var(--green) 50%); color: var(--white);"`;
+      inlineStyle = `style="background: linear-gradient(135deg, rgba(201,121,28,0.35) 50%, rgba(30,122,50,0.35) 50%); color: var(--black);"`;
       label = 'PTO/PAY';
     } else if (pto) {
       classes.push('pto-day');
       label = 'PTO';
     } else if (off && pay) {
-      inlineStyle = `style="background: linear-gradient(135deg, var(--offday-fill) 50%, var(--green) 50%); color: var(--white);"`;
+      inlineStyle = `style="background: linear-gradient(135deg, rgba(76,111,206,0.35) 50%, rgba(30,122,50,0.35) 50%); color: var(--black);"`;
       label = 'OFF/PAY';
     } else if (off) {
       classes.push('off-day');
