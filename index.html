@@ -85,7 +85,11 @@
     border-bottom: 1px solid var(--primary-tint-border);
     box-shadow: 0 4px 16px rgba(20,22,26,0.08);
   }
-  header h1 { font-size: 19px; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
+  header h1 {
+    font-size: 16px; font-weight: 800; margin: 0; letter-spacing: -0.01em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex-shrink: 1;
+  }
+  header h1 .driver-name { font-size: 12px; font-weight: 600; opacity: 0.75; }
   header .status {
     font-size: 12px;
     font-weight: 600;
@@ -468,7 +472,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>WTG Tracker</h1>
+    <h1>WTG Tracker <span class="driver-name">— RICHARD KESSLER</span></h1>
     <div style="display:flex; align-items:center; gap:10px;">
       <button class="theme-btn" onclick="openThemePicker()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 000 18 4.5 4.5 0 000-9h4.5A4.5 4.5 0 0012 3z"/></svg>
