@@ -173,6 +173,7 @@
     background: rgba(20,22,26,0.75); color: var(--white);
     font-size: 9px; font-weight: 700; text-align: center; padding: 2px 0;
     text-transform: uppercase; letter-spacing: 0.03em;
+    cursor: pointer;
   }
   .photo-thumb .remove {
     position: absolute; top: 2px; right: 2px; width: 18px; height: 18px;
@@ -320,6 +321,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>
       All Loads
     </button>
+    <button id="navTrash" onclick="showScreen('trash')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>
+      Trash
+    </button>
   </nav>
 </div>
 <div class="toast" id="toast"></div>
@@ -421,8 +426,10 @@ function showScreen(screen) {
   currentScreen = screen;
   document.getElementById('navHome').classList.toggle('active', screen === 'home');
   document.getElementById('navLoads').classList.toggle('active', screen === 'loads');
+  document.getElementById('navTrash').classList.toggle('active', screen === 'trash');
   if (screen === 'home') renderHome();
   if (screen === 'loads') renderLoadsList();
+  if (screen === 'trash') renderTrashScreen();
 }
 
 /* =========================================================
@@ -602,6 +609,13 @@ function setActiveType(type) {
   document.querySelectorAll('#typePicker button').forEach(b => {
     b.classList.toggle('active', b.dataset.type === type);
   });
+  // Also re-tag the most recently added new photo, so tapping a type
+  // button visibly updates the photo you just took, not just future ones.
+  if (draftPhotos.length > 0) {
+    draftPhotos[draftPhotos.length - 1].type = type;
+    if (currentScreen === 'edit') renderEditPhotoStrip();
+    else renderPhotoStrip();
+  }
 }
 
 function renderPhotoStrip() {
@@ -761,21 +775,21 @@ function closePhotoViewer() {
 async function deleteCurrentViewerPhoto() {
   const ctx = currentViewerDeleteCtx;
   if (!ctx) return;
-  if (!confirm('Delete this photo? This cannot be undone.')) return;
+  if (!confirm('Move this photo to Trash? You can restore it later.')) return;
 
   try {
     if (ctx.kind === 'pending') {
       const all = await idbGetAll('pendingLoads');
       const record = all.find(r => r.localId === ctx.localId);
       if (record) {
-        record.photos.splice(ctx.photoIndex, 1);
+        record.photos[ctx.photoIndex].deleted = true;
+        record.photos[ctx.photoIndex].deletedAt = new Date().toISOString();
         await idbPut('pendingLoads', record);
       }
     } else if (ctx.kind === 'remote') {
-      await sb.storage.from('load-photos').remove([ctx.storagePath]);
-      await sb.from('load_photos').delete().eq('id', ctx.photoRowId);
+      await sb.from('load_photos').update({ deleted_at: new Date().toISOString() }).eq('id', ctx.photoRowId);
     }
-    showToast('Photo deleted');
+    showToast('Photo moved to Trash');
   } catch (err) {
     showToast('Delete failed: ' + err.message);
   }
@@ -816,15 +830,16 @@ async function renderLoadsList() {
   const main = document.getElementById('main');
   main.innerHTML = `<div id="loadsContainer"><div class="empty-state">Loading...</div></div>`;
 
-  const pending = await idbGetAll('pendingLoads');
+  const allPending = await idbGetAll('pendingLoads');
+  const pending = allPending.filter(p => !p.deletedAt);
   let remoteLoads = [];
   let remotePhotosByLoad = {};
 
   if (navigator.onLine) {
     try {
-      const { data: loads } = await sb.from('loads').select('*').order('created_at', { ascending: false }).limit(100);
+      const { data: loads } = await sb.from('loads').select('*').is('deleted_at', null).order('created_at', { ascending: false }).limit(100);
       remoteLoads = loads || [];
-      const { data: photos } = await sb.from('load_photos').select('*');
+      const { data: photos } = await sb.from('load_photos').select('*').is('deleted_at', null);
       (photos || []).forEach(p => {
         if (!remotePhotosByLoad[p.load_id]) remotePhotosByLoad[p.load_id] = [];
         remotePhotosByLoad[p.load_id].push(p);
@@ -850,10 +865,11 @@ async function renderLoadsList() {
 
   pending.forEach(p => {
     const thumbs = p.photos.map((ph, i) => {
+      if (ph.deleted) return null;
       const url = URL.createObjectURL(ph.blob);
       const ctxIdx = window._viewerCtxRegistry.push({ kind: 'pending', localId: p.localId, photoIndex: i }) - 1;
       return `<img src="${url}" onclick="openPhotoViewer('${url}', '${(p.load_number || 'load')}-${ph.type}-${i}.jpg', window._viewerCtxRegistry[${ctxIdx}])">`;
-    }).join('');
+    }).filter(Boolean).join('');
     html += `
       <div class="load-card">
         <div class="load-card-top">
@@ -927,7 +943,7 @@ async function openEditLoad(source, id) {
     try {
       const { data: loadRow, error } = await sb.from('loads').select('*').eq('id', id).single();
       if (error) throw error;
-      const { data: photos } = await sb.from('load_photos').select('*').eq('load_id', id);
+      const { data: photos } = await sb.from('load_photos').select('*').eq('load_id', id).is('deleted_at', null);
       editContext = { source: 'remote', id, record: { ...loadRow, photos: photos || [] } };
     } catch (err) {
       showToast('Could not load: ' + err.message);
@@ -992,15 +1008,16 @@ function renderEditPhotoStrip() {
   let existingHtml = '';
   if (source === 'pending') {
     existingHtml = record.photos.map((p, i) => {
+      if (p.deleted) return null;
       const url = URL.createObjectURL(p.blob);
       const ctxIdx = window._viewerCtxRegistry.push({ kind: 'pending', localId: id, photoIndex: i }) - 1;
       return `
         <div class="photo-thumb" onclick="openPhotoViewer('${url}', 'photo-${i}.jpg', window._viewerCtxRegistry[${ctxIdx}])">
           <img src="${url}">
-          <span class="tag">${p.type}</span>
+          <span class="tag" onclick="event.stopPropagation(); cyclePhotoType('pending', '${id}', ${i})">${p.type}</span>
         </div>
       `;
-    }).join('');
+    }).filter(Boolean).join('');
   } else {
     existingHtml = record.photos.map((p, i) => {
       const { data } = sb.storage.from('load-photos').getPublicUrl(p.storage_path);
@@ -1008,7 +1025,7 @@ function renderEditPhotoStrip() {
       return `
         <div class="photo-thumb" onclick="openPhotoViewer('${data.publicUrl}', 'photo-${i}.jpg', window._viewerCtxRegistry[${ctxIdx}])">
           <img src="${data.publicUrl}">
-          <span class="tag">${p.photo_type}</span>
+          <span class="tag" onclick="event.stopPropagation(); cyclePhotoType('remote', '${p.id}', ${i})">${p.photo_type}</span>
         </div>
       `;
     }).join('');
@@ -1027,6 +1044,32 @@ function renderEditPhotoStrip() {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
     </div>
   `;
+}
+
+async function cyclePhotoType(source, ref, index) {
+  const order = ['tlo', 'bol', 'other'];
+
+  if (source === 'pending') {
+    const { record } = editContext;
+    const current = record.photos[index].type;
+    const next = order[(order.indexOf(current) + 1) % order.length];
+    record.photos[index].type = next;
+    await idbPut('pendingLoads', record);
+  } else {
+    const { record } = editContext;
+    const photoRow = record.photos[index];
+    const current = photoRow.photo_type;
+    const next = order[(order.indexOf(current) + 1) % order.length];
+    try {
+      const { error } = await sb.from('load_photos').update({ photo_type: next }).eq('id', ref);
+      if (error) throw error;
+      photoRow.photo_type = next;
+    } catch (err) {
+      showToast('Update failed: ' + err.message);
+      return;
+    }
+  }
+  renderEditPhotoStrip();
 }
 
 function cancelEdit() {
@@ -1080,8 +1123,167 @@ async function saveEditedLoad() {
 }
 
 async function deleteLoad(source, id) {
-  if (!confirm('Delete this entire load and all its photos? This cannot be undone.')) return;
+  if (!confirm('Move this load to Trash? You can restore it later.')) return;
 
+  try {
+    if (source === 'pending') {
+      const all = await idbGetAll('pendingLoads');
+      const record = all.find(r => r.localId === id);
+      if (record) {
+        record.deletedAt = new Date().toISOString();
+        await idbPut('pendingLoads', record);
+      }
+    } else {
+      const { error } = await sb.from('loads').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+      if (error) throw error;
+    }
+    showToast('Load moved to Trash');
+  } catch (err) {
+    showToast('Delete failed: ' + err.message);
+  }
+  renderLoadsList();
+}
+
+/* =========================================================
+   TRASH — restore or permanently remove soft-deleted items
+   ========================================================= */
+async function renderTrashScreen() {
+  const main = document.getElementById('main');
+  main.innerHTML = `<div class="empty-state">Loading...</div>`;
+
+  const allPending = await idbGetAll('pendingLoads');
+  const trashedPendingLoads = allPending.filter(p => p.deletedAt);
+  const trashedPendingPhotos = [];
+  allPending.filter(p => !p.deletedAt).forEach(p => {
+    p.photos.forEach((ph, i) => {
+      if (ph.deleted) trashedPendingPhotos.push({ record: p, photo: ph, index: i });
+    });
+  });
+
+  let trashedRemoteLoads = [];
+  let trashedRemotePhotos = [];
+  if (navigator.onLine) {
+    try {
+      const { data: loads } = await sb.from('loads').select('*').not('deleted_at', 'is', null).order('deleted_at', { ascending: false });
+      trashedRemoteLoads = loads || [];
+      const { data: photos } = await sb.from('load_photos').select('*, loads(load_number, deleted_at)').not('deleted_at', 'is', null);
+      trashedRemotePhotos = (photos || []).filter(p => !p.loads || !p.loads.deleted_at);
+    } catch (err) {
+      console.error('Failed to fetch trash', err);
+    }
+  }
+
+  const totalCount = trashedPendingLoads.length + trashedPendingPhotos.length + trashedRemoteLoads.length + trashedRemotePhotos.length;
+  if (totalCount === 0) {
+    main.innerHTML = `
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>
+        <div>Trash is empty</div>
+      </div>
+    `;
+    return;
+  }
+
+  let html = '';
+
+  trashedPendingLoads.forEach(p => {
+    html += `
+      <div class="load-card">
+        <div class="load-card-top">
+          <div>
+            <div class="load-card-title">${p.load_number ? 'Load #' + p.load_number : 'Load'}</div>
+            <div class="load-card-date">Deleted ${new Date(p.deletedAt).toLocaleString()}</div>
+          </div>
+          <span class="sync-pill pending">Not synced</span>
+        </div>
+        <div class="load-card-actions">
+          <button class="edit-action" onclick="restoreLoad('pending', '${p.localId}')">Restore</button>
+          <button class="delete-action" onclick="permanentlyDeleteLoad('pending', '${p.localId}')">Delete Forever</button>
+        </div>
+      </div>
+    `;
+  });
+
+  trashedRemoteLoads.forEach(l => {
+    html += `
+      <div class="load-card">
+        <div class="load-card-top">
+          <div>
+            <div class="load-card-title">${l.load_number ? 'Load #' + l.load_number : 'Load'}</div>
+            <div class="load-card-date">Deleted ${new Date(l.deleted_at).toLocaleString()}</div>
+          </div>
+          <span class="sync-pill synced">Synced</span>
+        </div>
+        <div class="load-card-actions">
+          <button class="edit-action" onclick="restoreLoad('remote', '${l.id}')">Restore</button>
+          <button class="delete-action" onclick="permanentlyDeleteLoad('remote', '${l.id}')">Delete Forever</button>
+        </div>
+      </div>
+    `;
+  });
+
+  trashedPendingPhotos.forEach(({ record, photo, index }) => {
+    const url = URL.createObjectURL(photo.blob);
+    html += `
+      <div class="load-card">
+        <div class="load-card-top">
+          <div>
+            <div class="load-card-title">Photo from ${record.load_number ? 'Load #' + record.load_number : 'a load'}</div>
+            <div class="load-card-date">Deleted ${new Date(photo.deletedAt).toLocaleString()}</div>
+          </div>
+        </div>
+        <div class="load-card-photos"><img src="${url}"></div>
+        <div class="load-card-actions">
+          <button class="edit-action" onclick="restorePhoto('pending', '${record.localId}', ${index})">Restore</button>
+          <button class="delete-action" onclick="permanentlyDeletePhoto('pending', '${record.localId}', ${index})">Delete Forever</button>
+        </div>
+      </div>
+    `;
+  });
+
+  trashedRemotePhotos.forEach(ph => {
+    const { data } = sb.storage.from('load-photos').getPublicUrl(ph.storage_path);
+    html += `
+      <div class="load-card">
+        <div class="load-card-top">
+          <div>
+            <div class="load-card-title">Photo from ${ph.loads && ph.loads.load_number ? 'Load #' + ph.loads.load_number : 'a load'}</div>
+            <div class="load-card-date">Deleted ${new Date(ph.deleted_at).toLocaleString()}</div>
+          </div>
+        </div>
+        <div class="load-card-photos"><img src="${data.publicUrl}"></div>
+        <div class="load-card-actions">
+          <button class="edit-action" onclick="restorePhoto('remote', '${ph.id}')">Restore</button>
+          <button class="delete-action" onclick="permanentlyDeletePhoto('remote', '${ph.id}', null, '${ph.storage_path}')">Delete Forever</button>
+        </div>
+      </div>
+    `;
+  });
+
+  main.innerHTML = html;
+}
+
+async function restoreLoad(source, id) {
+  try {
+    if (source === 'pending') {
+      const all = await idbGetAll('pendingLoads');
+      const record = all.find(r => r.localId === id);
+      if (record) {
+        delete record.deletedAt;
+        await idbPut('pendingLoads', record);
+      }
+    } else {
+      await sb.from('loads').update({ deleted_at: null }).eq('id', id);
+    }
+    showToast('Load restored');
+  } catch (err) {
+    showToast('Restore failed: ' + err.message);
+  }
+  renderTrashScreen();
+}
+
+async function permanentlyDeleteLoad(source, id) {
+  if (!confirm('Permanently delete this load? This cannot be undone.')) return;
   try {
     if (source === 'pending') {
       await idbDelete('pendingLoads', id);
@@ -1090,16 +1292,56 @@ async function deleteLoad(source, id) {
       if (photos && photos.length > 0) {
         await sb.storage.from('load-photos').remove(photos.map(p => p.storage_path));
       }
-      const { error } = await sb.from('loads').delete().eq('id', id);
-      if (error) throw error;
+      await sb.from('loads').delete().eq('id', id);
     }
-    showToast('Load deleted');
+    showToast('Load permanently deleted');
   } catch (err) {
     showToast('Delete failed: ' + err.message);
   }
-
-  renderLoadsList();
+  renderTrashScreen();
 }
+
+async function restorePhoto(source, refId, index) {
+  try {
+    if (source === 'pending') {
+      const all = await idbGetAll('pendingLoads');
+      const record = all.find(r => r.localId === refId);
+      if (record) {
+        delete record.photos[index].deleted;
+        delete record.photos[index].deletedAt;
+        await idbPut('pendingLoads', record);
+      }
+    } else {
+      await sb.from('load_photos').update({ deleted_at: null }).eq('id', refId);
+    }
+    showToast('Photo restored');
+  } catch (err) {
+    showToast('Restore failed: ' + err.message);
+  }
+  renderTrashScreen();
+}
+
+async function permanentlyDeletePhoto(source, refId, index, storagePath) {
+  if (!confirm('Permanently delete this photo? This cannot be undone.')) return;
+  try {
+    if (source === 'pending') {
+      const all = await idbGetAll('pendingLoads');
+      const record = all.find(r => r.localId === refId);
+      if (record) {
+        record.photos.splice(index, 1);
+        await idbPut('pendingLoads', record);
+      }
+    } else {
+      await sb.storage.from('load-photos').remove([storagePath]);
+      await sb.from('load_photos').delete().eq('id', refId);
+    }
+    showToast('Photo permanently deleted');
+  } catch (err) {
+    showToast('Delete failed: ' + err.message);
+  }
+  renderTrashScreen();
+}
+
 window.addEventListener('online', () => { updateStatusPill(); trySync(); });
 window.addEventListener('offline', updateStatusPill);
 
