@@ -224,7 +224,50 @@
   .load-card-date { font-size: 12px; color: var(--gray); font-weight: 600; }
   .load-card-meta { font-size: 13px; color: var(--gray); margin-bottom: 10px; }
   .load-card-photos { display: flex; gap: 8px; overflow-x: auto; }
-  .load-card-photos img { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; }
+  .load-card-photos img { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; cursor: pointer; }
+  .load-card-actions { display: flex; gap: 16px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--gray-light); }
+  .load-card-actions button {
+    background: none; border: none; font-family: inherit; font-size: 13px; font-weight: 700;
+    padding: 4px 0; cursor: pointer; display: flex; align-items: center; gap: 5px;
+  }
+  .load-card-actions button svg { width: 15px; height: 15px; }
+  .edit-action { color: var(--blue); }
+  .delete-action { color: var(--red); }
+
+  /* ---- Photo viewer (tap to view full-size + download) ---- */
+  .photo-viewer {
+    position: fixed; inset: 0; background: rgba(20,22,26,0.96); z-index: 70;
+    display: flex; flex-direction: column;
+  }
+  .photo-viewer-top {
+    display: flex; justify-content: flex-end; padding: calc(16px + var(--safe-top)) 16px 12px 16px;
+    flex-shrink: 0;
+  }
+  .photo-viewer-top button {
+    background: rgba(255,255,255,0.15); border: none; color: var(--white);
+    width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  }
+  .photo-viewer-top button svg { width: 20px; height: 20px; }
+  .photo-viewer-image { flex: 1 1 0; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0 12px; }
+  .photo-viewer-image img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; }
+  .photo-viewer-bottom {
+    padding: 16px 20px calc(24px + var(--safe-bottom)) 20px; flex-shrink: 0;
+  }
+  .download-btn {
+    width: 100%; background: var(--blue); color: var(--white); border: none;
+    border-radius: var(--radius); padding: 16px; font-family: inherit; font-size: 16px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;
+  }
+  .download-btn svg { width: 20px; height: 20px; }
+  .download-btn:disabled { opacity: 0.6; }
+  .viewer-btn-row { display: flex; gap: 10px; }
+  .delete-photo-btn {
+    background: var(--red); color: var(--white); border: none;
+    border-radius: var(--radius); padding: 16px; font-family: inherit; font-size: 16px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;
+    flex-shrink: 0; width: 56px;
+  }
+  .delete-photo-btn svg { width: 20px; height: 20px; }
   .sync-pill {
     font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px;
   }
@@ -349,6 +392,8 @@ let currentScreen = 'home';
 let cameraStream = null;
 let draftPhotos = []; // { blob, type, url }
 let activePhotoType = 'tlo';
+let editContext = null; // { source: 'pending'|'remote', id, record }
+let currentViewerDeleteCtx = null;
 
 /* =========================================================
    UI HELPERS
@@ -423,7 +468,7 @@ function handleFileUpload(e) {
   if (!file) return;
   draftPhotos.push({ blob: file, type: activePhotoType, url: URL.createObjectURL(file) });
   e.target.value = '';
-  renderReviewScreen();
+  if (currentScreen === 'edit') renderEditScreen(); else renderReviewScreen();
 }
 
 /* =========================================================
@@ -496,7 +541,7 @@ function capturePhoto() {
   canvas.toBlob((blob) => {
     draftPhotos.push({ blob, type: activePhotoType, url: URL.createObjectURL(blob) });
     closeCamera();
-    renderReviewScreen();
+    if (currentScreen === 'edit') renderEditScreen(); else renderReviewScreen();
   }, 'image/jpeg', 0.85);
 }
 
@@ -675,6 +720,96 @@ async function trySync() {
 }
 
 /* =========================================================
+   PHOTO VIEWER — tap a thumbnail to see it full-size + download
+   ========================================================= */
+function openPhotoViewer(imageUrl, filename, deleteCtx) {
+  currentViewerDeleteCtx = deleteCtx || null;
+  const overlay = document.createElement('div');
+  overlay.className = 'photo-viewer';
+  overlay.id = 'photoViewerOverlay';
+  overlay.innerHTML = `
+    <div class="photo-viewer-top">
+      <button onclick="closePhotoViewer()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="photo-viewer-image">
+      <img src="${imageUrl}">
+    </div>
+    <div class="photo-viewer-bottom">
+      <div class="viewer-btn-row">
+        <button class="download-btn" id="downloadBtn" onclick="downloadPhoto('${imageUrl}', '${filename}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
+          Download
+        </button>
+        ${deleteCtx ? `
+        <button class="delete-photo-btn" onclick="deleteCurrentViewerPhoto()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>
+        </button>` : ''}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function closePhotoViewer() {
+  const overlay = document.getElementById('photoViewerOverlay');
+  if (overlay) overlay.remove();
+  currentViewerDeleteCtx = null;
+}
+
+async function deleteCurrentViewerPhoto() {
+  const ctx = currentViewerDeleteCtx;
+  if (!ctx) return;
+  if (!confirm('Delete this photo? This cannot be undone.')) return;
+
+  try {
+    if (ctx.kind === 'pending') {
+      const all = await idbGetAll('pendingLoads');
+      const record = all.find(r => r.localId === ctx.localId);
+      if (record) {
+        record.photos.splice(ctx.photoIndex, 1);
+        await idbPut('pendingLoads', record);
+      }
+    } else if (ctx.kind === 'remote') {
+      await sb.storage.from('load-photos').remove([ctx.storagePath]);
+      await sb.from('load_photos').delete().eq('id', ctx.photoRowId);
+    }
+    showToast('Photo deleted');
+  } catch (err) {
+    showToast('Delete failed: ' + err.message);
+  }
+
+  closePhotoViewer();
+  if (currentScreen === 'edit') renderEditScreen();
+  else if (currentScreen === 'loads') renderLoadsList();
+}
+
+async function downloadPhoto(imageUrl, filename) {
+  const btn = document.getElementById('downloadBtn');
+  btn.disabled = true;
+  btn.textContent = 'Downloading...';
+  try {
+    const response = await fetch(imageUrl);
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename || 'photo.jpg';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+    showToast('Photo downloaded');
+  } catch (err) {
+    showToast('Download failed: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg> Download`;
+  }
+}
+
+/* =========================================================
    LOADS LIST / VIEWER
    ========================================================= */
 async function renderLoadsList() {
@@ -711,9 +846,14 @@ async function renderLoadsList() {
   }
 
   let html = '';
+  window._viewerCtxRegistry = [];
 
   pending.forEach(p => {
-    const thumbs = p.photos.map(ph => `<img src="${URL.createObjectURL(ph.blob)}">`).join('');
+    const thumbs = p.photos.map((ph, i) => {
+      const url = URL.createObjectURL(ph.blob);
+      const ctxIdx = window._viewerCtxRegistry.push({ kind: 'pending', localId: p.localId, photoIndex: i }) - 1;
+      return `<img src="${url}" onclick="openPhotoViewer('${url}', '${(p.load_number || 'load')}-${ph.type}-${i}.jpg', window._viewerCtxRegistry[${ctxIdx}])">`;
+    }).join('');
     html += `
       <div class="load-card">
         <div class="load-card-top">
@@ -725,15 +865,26 @@ async function renderLoadsList() {
         </div>
         <div class="load-card-meta">${[p.store_location, p.store_number, p.notes].filter(Boolean).join(' · ') || 'No notes'}</div>
         <div class="load-card-photos">${thumbs}</div>
+        <div class="load-card-actions">
+          <button class="edit-action" onclick="openEditLoad('pending', '${p.localId}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+            Edit
+          </button>
+          <button class="delete-action" onclick="deleteLoad('pending', '${p.localId}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>
+            Delete
+          </button>
+        </div>
       </div>
     `;
   });
 
   remoteLoads.forEach(l => {
     const photos = remotePhotosByLoad[l.id] || [];
-    const thumbs = photos.map(ph => {
+    const thumbs = photos.map((ph, i) => {
       const { data } = sb.storage.from('load-photos').getPublicUrl(ph.storage_path);
-      return `<img src="${data.publicUrl}">`;
+      const ctxIdx = window._viewerCtxRegistry.push({ kind: 'remote', photoRowId: ph.id, storagePath: ph.storage_path }) - 1;
+      return `<img src="${data.publicUrl}" onclick="openPhotoViewer('${data.publicUrl}', '${(l.load_number || 'load')}-${ph.photo_type}-${i}.jpg', window._viewerCtxRegistry[${ctxIdx}])">`;
     }).join('');
     html += `
       <div class="load-card">
@@ -746,6 +897,16 @@ async function renderLoadsList() {
         </div>
         <div class="load-card-meta">${[l.store_location, l.store_number, l.notes].filter(Boolean).join(' · ') || 'No notes'}</div>
         <div class="load-card-photos">${thumbs}</div>
+        <div class="load-card-actions">
+          <button class="edit-action" onclick="openEditLoad('remote', '${l.id}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+            Edit
+          </button>
+          <button class="delete-action" onclick="deleteLoad('remote', '${l.id}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>
+            Delete
+          </button>
+        </div>
       </div>
     `;
   });
@@ -754,8 +915,191 @@ async function renderLoadsList() {
 }
 
 /* =========================================================
-   INIT
+   EDIT LOAD
    ========================================================= */
+async function openEditLoad(source, id) {
+  if (source === 'pending') {
+    const all = await idbGetAll('pendingLoads');
+    const record = all.find(r => r.localId === id);
+    if (!record) { showToast('Load not found'); return; }
+    editContext = { source: 'pending', id, record };
+  } else {
+    try {
+      const { data: loadRow, error } = await sb.from('loads').select('*').eq('id', id).single();
+      if (error) throw error;
+      const { data: photos } = await sb.from('load_photos').select('*').eq('load_id', id);
+      editContext = { source: 'remote', id, record: { ...loadRow, photos: photos || [] } };
+    } catch (err) {
+      showToast('Could not load: ' + err.message);
+      return;
+    }
+  }
+  draftPhotos = [];
+  renderEditScreen();
+}
+
+function renderEditScreen() {
+  currentScreen = 'edit';
+  const { source, record } = editContext;
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <div class="field">
+      <label>Photos</label>
+      <div class="photo-strip" id="photoStrip"></div>
+    </div>
+    <div class="field">
+      <label>Tag next new photo as</label>
+      <div class="photo-type-picker" id="typePicker">
+        <button data-type="tlo" onclick="setActiveType('tlo')">TLO / Manifest</button>
+        <button data-type="bol" onclick="setActiveType('bol')">Fuel BOL</button>
+        <button data-type="other" onclick="setActiveType('other')">Other</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Load # (optional)</label>
+      <input type="text" id="fieldLoadNumber" inputmode="text" value="${record.load_number || ''}">
+    </div>
+    <div class="field">
+      <label>Store / Location (optional)</label>
+      <select id="fieldStore">
+        <option value="">Select...</option>
+        ${STORE_LOCATIONS.map(s => `<option value="${s}" ${record.store_location === s ? 'selected' : ''}>${s}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field">
+      <label>Store # (optional)</label>
+      <input type="text" id="fieldStoreNumber" inputmode="numeric" value="${record.store_number || ''}">
+    </div>
+    <div class="field">
+      <label>Notes (optional)</label>
+      <textarea id="fieldNotes" placeholder="Anything worth noting...">${record.notes || ''}</textarea>
+    </div>
+
+    <button class="save-btn" onclick="saveEditedLoad()">Save Changes</button>
+    <button class="cancel-link" onclick="cancelEdit()">Cancel</button>
+  `;
+  renderEditPhotoStrip();
+  setActiveType(activePhotoType);
+}
+
+function renderEditPhotoStrip() {
+  const { source, record, id } = editContext;
+  const strip = document.getElementById('photoStrip');
+  if (!strip) return;
+
+  window._viewerCtxRegistry = window._viewerCtxRegistry || [];
+
+  let existingHtml = '';
+  if (source === 'pending') {
+    existingHtml = record.photos.map((p, i) => {
+      const url = URL.createObjectURL(p.blob);
+      const ctxIdx = window._viewerCtxRegistry.push({ kind: 'pending', localId: id, photoIndex: i }) - 1;
+      return `
+        <div class="photo-thumb" onclick="openPhotoViewer('${url}', 'photo-${i}.jpg', window._viewerCtxRegistry[${ctxIdx}])">
+          <img src="${url}">
+          <span class="tag">${p.type}</span>
+        </div>
+      `;
+    }).join('');
+  } else {
+    existingHtml = record.photos.map((p, i) => {
+      const { data } = sb.storage.from('load-photos').getPublicUrl(p.storage_path);
+      const ctxIdx = window._viewerCtxRegistry.push({ kind: 'remote', photoRowId: p.id, storagePath: p.storage_path }) - 1;
+      return `
+        <div class="photo-thumb" onclick="openPhotoViewer('${data.publicUrl}', 'photo-${i}.jpg', window._viewerCtxRegistry[${ctxIdx}])">
+          <img src="${data.publicUrl}">
+          <span class="tag">${p.photo_type}</span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  const draftHtml = draftPhotos.map((p, i) => `
+    <div class="photo-thumb">
+      <img src="${p.url}">
+      <span class="tag">${p.type} · new</span>
+      <button class="remove" onclick="removeDraftPhoto(${i})">&times;</button>
+    </div>
+  `).join('');
+
+  strip.innerHTML = existingHtml + draftHtml + `
+    <div class="add-photo-thumb" onclick="openCamera(activePhotoType)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+    </div>
+  `;
+}
+
+function cancelEdit() {
+  editContext = null;
+  draftPhotos = [];
+  showScreen('loads');
+}
+
+async function saveEditedLoad() {
+  const { source, id, record } = editContext;
+  const load_number = document.getElementById('fieldLoadNumber').value || null;
+  const store_location = document.getElementById('fieldStore').value || null;
+  const store_number = document.getElementById('fieldStoreNumber').value || null;
+  const notes = document.getElementById('fieldNotes').value || null;
+
+  try {
+    if (source === 'pending') {
+      record.load_number = load_number;
+      record.store_location = store_location;
+      record.store_number = store_number;
+      record.notes = notes;
+      record.photos = record.photos.concat(draftPhotos.map(p => ({ type: p.type, blob: p.blob })));
+      await idbPut('pendingLoads', record);
+    } else {
+      const { error: updateErr } = await sb.from('loads').update({
+        load_number, store_location, store_number, notes
+      }).eq('id', id);
+      if (updateErr) throw updateErr;
+
+      for (const photo of draftPhotos) {
+        const path = `${id}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+        const { error: upErr } = await sb.storage.from('load-photos').upload(path, photo.blob, {
+          contentType: 'image/jpeg'
+        });
+        if (upErr) throw upErr;
+        const { error: rowErr } = await sb.from('load_photos').insert({
+          load_id: id, photo_type: photo.type, storage_path: path
+        });
+        if (rowErr) throw rowErr;
+      }
+    }
+    showToast('Load updated');
+  } catch (err) {
+    showToast('Save failed: ' + err.message);
+    return;
+  }
+
+  editContext = null;
+  draftPhotos = [];
+  showScreen('loads');
+}
+
+async function deleteLoad(source, id) {
+  if (!confirm('Delete this entire load and all its photos? This cannot be undone.')) return;
+
+  try {
+    if (source === 'pending') {
+      await idbDelete('pendingLoads', id);
+    } else {
+      const { data: photos } = await sb.from('load_photos').select('storage_path').eq('load_id', id);
+      if (photos && photos.length > 0) {
+        await sb.storage.from('load-photos').remove(photos.map(p => p.storage_path));
+      }
+      const { error } = await sb.from('loads').delete().eq('id', id);
+      if (error) throw error;
+    }
+    showToast('Load deleted');
+  } catch (err) {
+    showToast('Delete failed: ' + err.message);
+  }
+
+  renderLoadsList();
+}
 window.addEventListener('online', () => { updateStatusPill(); trySync(); });
 window.addEventListener('offline', updateStatusPill);
 
