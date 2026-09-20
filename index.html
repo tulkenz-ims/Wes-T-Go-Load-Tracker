@@ -226,6 +226,14 @@
   .load-card-meta { font-size: 13px; color: var(--gray); margin-bottom: 10px; }
   .load-card-photos { display: flex; gap: 8px; overflow-x: auto; }
   .load-card-photos img { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; cursor: pointer; }
+  .list-thumb { position: relative; width: 64px; height: 64px; border-radius: 8px; overflow: hidden; flex-shrink: 0; }
+  .list-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; cursor: pointer; }
+  .list-thumb .tag {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: rgba(20,22,26,0.75); color: var(--white);
+    font-size: 8px; font-weight: 700; text-align: center; padding: 1px 0;
+    text-transform: uppercase; letter-spacing: 0.02em; pointer-events: none;
+  }
   .load-card-actions { display: flex; gap: 16px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--gray-light); }
   .load-card-actions button {
     background: none; border: none; font-family: inherit; font-size: 13px; font-weight: 700;
@@ -868,7 +876,7 @@ async function renderLoadsList() {
       if (ph.deleted) return null;
       const url = URL.createObjectURL(ph.blob);
       const ctxIdx = window._viewerCtxRegistry.push({ kind: 'pending', localId: p.localId, photoIndex: i }) - 1;
-      return `<img src="${url}" onclick="openPhotoViewer('${url}', '${(p.load_number || 'load')}-${ph.type}-${i}.jpg', window._viewerCtxRegistry[${ctxIdx}])">`;
+      return `<div class="list-thumb"><img src="${url}" onclick="openPhotoViewer('${url}', '${(p.load_number || 'load')}-${ph.type}-${i}.jpg', window._viewerCtxRegistry[${ctxIdx}])"><span class="tag">${ph.type}</span></div>`;
     }).filter(Boolean).join('');
     html += `
       <div class="load-card">
@@ -900,7 +908,7 @@ async function renderLoadsList() {
     const thumbs = photos.map((ph, i) => {
       const { data } = sb.storage.from('load-photos').getPublicUrl(ph.storage_path);
       const ctxIdx = window._viewerCtxRegistry.push({ kind: 'remote', photoRowId: ph.id, storagePath: ph.storage_path }) - 1;
-      return `<img src="${data.publicUrl}" onclick="openPhotoViewer('${data.publicUrl}', '${(l.load_number || 'load')}-${ph.photo_type}-${i}.jpg', window._viewerCtxRegistry[${ctxIdx}])">`;
+      return `<div class="list-thumb"><img src="${data.publicUrl}" onclick="openPhotoViewer('${data.publicUrl}', '${(l.load_number || 'load')}-${ph.photo_type}-${i}.jpg', window._viewerCtxRegistry[${ctxIdx}])"><span class="tag">${ph.photo_type}</span></div>`;
     }).join('');
     html += `
       <div class="load-card">
