@@ -31,6 +31,30 @@
     --radius: 14px;
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+    /* Theme (brand) color — default: Black */
+    --primary: #14161A;
+    --primary-dark: #000000;
+    --primary-tint: rgba(20,22,26,0.12);
+    --primary-tint-strong: rgba(20,22,26,0.16);
+    --primary-tint-border: rgba(20,22,26,0.3);
+    --primary-glow: rgba(20,22,26,0.3);
+  }
+  html[data-theme="blue"] {
+    --primary: #2A4CB4;
+    --primary-dark: #1E3785;
+    --primary-tint: rgba(42,76,180,0.12);
+    --primary-tint-strong: rgba(42,76,180,0.16);
+    --primary-tint-border: rgba(42,76,180,0.32);
+    --primary-glow: rgba(42,76,180,0.32);
+  }
+  html[data-theme="gold"] {
+    --primary: #C9A227;
+    --primary-dark: #8F6E12;
+    --primary-tint: rgba(201,162,39,0.15);
+    --primary-tint-strong: rgba(201,162,39,0.19);
+    --primary-tint-border: rgba(201,162,39,0.38);
+    --primary-glow: rgba(201,162,39,0.35);
   }
   * { box-sizing: border-box; }
   html, body {
@@ -50,15 +74,16 @@
 
   /* ---- Header ---- */
   header {
-    background: rgba(20,22,26,0.12);
-    color: var(--black);
+    background: var(--primary-tint);
+    color: var(--primary-dark);
     padding: 18px 20px calc(18px + var(--safe-top)) 20px;
     margin-top: calc(-1 * var(--safe-top));
     padding-top: calc(18px + var(--safe-top));
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid rgba(20,22,26,0.18);
+    border-bottom: 1px solid var(--primary-tint-border);
+    box-shadow: 0 4px 16px rgba(20,22,26,0.08);
   }
   header h1 { font-size: 19px; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
   header .status {
@@ -66,7 +91,7 @@
     font-weight: 600;
     padding: 5px 10px;
     border-radius: 20px;
-    background: rgba(20,22,26,0.1);
+    background: var(--primary-tint);
     display: flex;
     align-items: center;
     gap: 6px;
@@ -80,19 +105,22 @@
 
   /* ---- Big action button (home screen) ---- */
   .home { display: flex; flex-direction: column; gap: 16px; height: 100%; }
-  .home-hero { position: relative; flex: 1; border-radius: var(--radius); overflow: hidden; background: var(--white); }
+  .home-hero-wrap { flex: 1; border-radius: var(--radius); box-shadow: 0 10px 28px rgba(20,22,26,0.22); }
+  .home-hero { position: relative; width: 100%; height: 100%; border-radius: var(--radius); overflow: hidden; background: var(--white); }
   .home-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .cover-edit-badge {
     position: absolute; top: 12px; right: 12px; width: 52px; height: 52px;
     border-radius: 50%; background: rgba(20,22,26,0.55); border: none;
     display: flex; align-items: center; justify-content: center; cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+    backdrop-filter: blur(4px);
   }
   .cover-edit-badge svg { width: 26px; height: 26px; color: var(--white); }
   .home-actions-row { display: flex; gap: 12px; flex: 0 0 auto; }
   .action-btn {
-    background: rgba(20,22,26,0.14);
-    color: var(--black);
-    border: 2px solid rgba(20,22,26,0.3);
+    background: var(--primary-tint-strong);
+    color: var(--primary-dark);
+    border: 2px solid var(--primary-tint-border);
     border-radius: var(--radius);
     padding: 14px 10px;
     font-family: inherit;
@@ -129,7 +157,7 @@
     align-items: center;
   }
   .pending-banner button {
-    background: var(--black);
+    background: var(--primary);
     color: var(--white);
     border: none;
     border-radius: 8px;
@@ -137,6 +165,7 @@
     font-size: 13px;
     font-weight: 700;
     font-family: inherit;
+    box-shadow: 0 4px 12px var(--primary-glow);
   }
 
   /* ---- Camera view ---- */
@@ -194,7 +223,7 @@
     padding: 12px 8px; border-radius: 10px; border: 2px solid var(--gray-light);
     background: var(--white); font-family: inherit; font-weight: 700; font-size: 13px; color: var(--black);
   }
-  .photo-type-picker button.active { border-color: var(--black); background: #EDEDEE; color: var(--black); }
+  .photo-type-picker button.active { border-color: var(--primary); background: var(--primary-tint); color: var(--primary-dark); }
 
   .field { margin-bottom: 16px; }
   .field label { display: block; font-size: 13px; font-weight: 700; color: var(--gray); margin-bottom: 6px; }
@@ -209,6 +238,7 @@
     width: 100%; background: var(--green); color: var(--white); border: none;
     border-radius: var(--radius); padding: 18px; font-family: inherit; font-size: 17px; font-weight: 800;
     cursor: pointer; margin-top: 8px;
+    box-shadow: 0 6px 18px rgba(30,122,50,0.3);
   }
   .save-btn:active { background: var(--green-dark); }
   .cancel-link {
@@ -220,6 +250,7 @@
   .load-card {
     background: var(--white); border-radius: var(--radius); padding: 14px;
     margin-bottom: 12px; border: 1px solid var(--gray-light);
+    box-shadow: 0 2px 10px rgba(20,22,26,0.05);
   }
   .load-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
   .load-card-title { font-weight: 800; font-size: 15px; }
@@ -241,7 +272,7 @@
     padding: 4px 0; cursor: pointer; display: flex; align-items: center; gap: 5px;
   }
   .load-card-actions button svg { width: 15px; height: 15px; }
-  .edit-action { color: var(--black); }
+  .edit-action { color: var(--primary); }
   .delete-action { color: var(--red); }
 
   /* ---- Photo viewer (tap to view full-size + download) ---- */
@@ -264,9 +295,10 @@
     padding: 16px 20px calc(24px + var(--safe-bottom)) 20px; flex-shrink: 0;
   }
   .download-btn {
-    width: 100%; background: var(--black); color: var(--white); border: none;
+    width: 100%; background: var(--primary); color: var(--white); border: none;
     border-radius: var(--radius); padding: 16px; font-family: inherit; font-size: 16px; font-weight: 800;
     display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;
+    box-shadow: 0 6px 18px var(--primary-glow);
   }
   .download-btn svg { width: 20px; height: 20px; }
   .download-btn:disabled { opacity: 0.6; }
@@ -276,13 +308,15 @@
     border-radius: var(--radius); padding: 16px; font-family: inherit; font-size: 16px; font-weight: 800;
     display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;
     flex-shrink: 0; width: 56px;
+    box-shadow: 0 6px 18px rgba(192,57,43,0.3);
   }
   .delete-photo-btn svg { width: 20px; height: 20px; }
   .share-photo-btn {
-    background: var(--black); color: var(--white); border: none;
+    background: var(--primary); color: var(--white); border: none;
     border-radius: var(--radius); padding: 16px; font-family: inherit; font-size: 16px; font-weight: 800;
     display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;
     flex-shrink: 0; width: 56px;
+    box-shadow: 0 6px 18px var(--primary-glow);
   }
   .share-photo-btn svg { width: 20px; height: 20px; }
   .sync-pill {
@@ -300,13 +334,18 @@
     background: var(--white); border-top: 1px solid var(--gray-light);
     display: flex; padding-bottom: var(--safe-bottom);
     z-index: 10;
+    box-shadow: 0 -4px 16px rgba(20,22,26,0.08);
   }
   nav button {
     flex: 1; background: none; border: none; padding: 18px 0 16px 0;
     display: flex; flex-direction: column; align-items: center; gap: 6px;
     color: var(--gray); font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
   }
-  nav button.active { color: var(--black); }
+  nav button.active { color: var(--primary); position: relative; }
+  nav button.active::before {
+    content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 24px; height: 3px; border-radius: 0 0 3px 3px; background: var(--red);
+  }
   nav button svg { width: 28px; height: 28px; }
 
   .toast {
@@ -322,7 +361,7 @@
   .print-cal-btn {
     background: var(--white); border: 2px solid var(--gray-light); border-radius: 10px;
     padding: 6px 10px; display: flex; align-items: center; gap: 5px; cursor: pointer;
-    font-family: inherit; font-size: 11px; font-weight: 700; color: var(--black);
+    font-family: inherit; font-size: 11px; font-weight: 700; color: var(--primary);
   }
   .print-cal-btn svg { width: 14px; height: 14px; }
   .cal-actions-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
@@ -346,7 +385,7 @@
     background: var(--white); border: 2px solid var(--gray-light); border-radius: 10px;
     width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer;
   }
-  .cal-header button svg { width: 16px; height: 16px; color: var(--black); }
+  .cal-header button svg { width: 16px; height: 16px; color: var(--primary); }
   .cal-header .cal-title { font-size: 15px; font-weight: 800; }
   .cal-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; font-size: 10px; font-weight: 700; color: var(--gray); }
   .cal-legend span { display: flex; align-items: center; gap: 4px; }
@@ -382,13 +421,15 @@
   .day-sheet-status.pay { color: var(--green-dark); }
   .pto-card {
     background: var(--white); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; border: 1px solid var(--gray-light);
+    box-shadow: 0 2px 10px rgba(20,22,26,0.05);
   }
   .pto-card-range { font-weight: 800; font-size: 14px; margin-bottom: 6px; }
   .pto-card-notes { font-size: 13px; color: var(--gray); margin-bottom: 10px; }
   .pto-card-photo { width: 100%; max-width: 200px; border-radius: 10px; cursor: pointer; margin-bottom: 10px; display: block; }
   .add-pto-btn {
-    width: 100%; background: var(--black); color: var(--white); border: none;
+    width: 100%; background: var(--primary); color: var(--white); border: none;
     border-radius: var(--radius); padding: 16px; font-family: inherit; font-size: 15px; font-weight: 800; cursor: pointer;
+    box-shadow: 0 6px 18px var(--primary-glow);
   }
   .close-sheet-link {
     display: block; text-align: center; padding: 14px; color: var(--gray); font-weight: 600;
@@ -399,15 +440,43 @@
     color: var(--gray); font-weight: 700; font-size: 13px; cursor: pointer; margin-bottom: 16px;
   }
   .pto-photo-upload img { max-width: 100%; max-height: 160px; border-radius: 8px; }
+
+  .month-picker-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+  .month-checkbox {
+    display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700;
+    background: var(--white); border: 2px solid var(--gray-light); border-radius: 10px; padding: 10px 12px;
+  }
+  .month-checkbox input { width: 18px; height: 18px; accent-color: var(--black); }
+
+  .theme-btn {
+    background: var(--primary-tint); border: none; width: 32px; height: 32px;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .theme-btn svg { width: 17px; height: 17px; color: var(--primary-dark); }
+  .theme-swatch-row { display: flex; gap: 14px; justify-content: center; margin-bottom: 20px; }
+  .theme-swatch {
+    width: 64px; height: 64px; border-radius: 50%; border: 3px solid transparent;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    background: none; padding: 0;
+  }
+  .theme-swatch .swatch-fill { width: 52px; height: 52px; border-radius: 50%; }
+  .theme-swatch.selected { border-color: var(--gray); }
+  .theme-swatch-label { text-align: center; font-size: 11px; font-weight: 700; color: var(--gray); margin-top: 4px; }
+  .theme-swatch-col { display: flex; flex-direction: column; align-items: center; }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
     <h1>WTG Tracker</h1>
-    <div class="status" id="statusPill">
-      <span class="dot" id="statusDot"></span>
-      <span id="statusText">Online</span>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <button class="theme-btn" onclick="openThemePicker()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 000 18 4.5 4.5 0 000-9h4.5A4.5 4.5 0 0012 3z"/></svg>
+      </button>
+      <div class="status" id="statusPill">
+        <span class="dot" id="statusDot"></span>
+        <span id="statusText">Online</span>
+      </div>
     </div>
   </header>
   <main id="main"></main>
@@ -537,6 +606,53 @@ function updateStatusPill() {
   }
 }
 
+/* =========================================================
+   THEME PICKER — Black / Blue / Gold
+   ========================================================= */
+const THEMES = [
+  { id: 'black', label: 'Black', swatch: '#14161A' },
+  { id: 'blue', label: 'Blue', swatch: '#2A4CB4' },
+  { id: 'gold', label: 'Gold', swatch: '#C9A227' }
+];
+
+function applyTheme(themeId) {
+  document.documentElement.setAttribute('data-theme', themeId);
+  localStorage.setItem('wtgTheme', themeId);
+  const theme = THEMES.find(t => t.id === themeId) || THEMES[0];
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (metaTheme) metaTheme.setAttribute('content', theme.swatch);
+}
+
+function openThemePicker() {
+  const current = localStorage.getItem('wtgTheme') || 'black';
+  const overlay = document.createElement('div');
+  overlay.className = 'day-sheet';
+  overlay.id = 'themePickerOverlay';
+  overlay.innerHTML = `
+    <div class="day-sheet-inner">
+      <div class="day-sheet-title" style="text-align:center;">Choose a Color</div>
+      <div class="theme-swatch-row">
+        ${THEMES.map(t => `
+          <div class="theme-swatch-col">
+            <button class="theme-swatch ${t.id === current ? 'selected' : ''}" onclick="applyTheme('${t.id}'); openThemePicker();">
+              <span class="swatch-fill" style="background:${t.swatch}"></span>
+            </button>
+            <div class="theme-swatch-label">${t.label}</div>
+          </div>
+        `).join('')}
+      </div>
+      <button class="cancel-link" onclick="closeThemePicker()">Close</button>
+    </div>
+  `;
+  closeThemePicker();
+  document.body.appendChild(overlay);
+}
+
+function closeThemePicker() {
+  const overlay = document.getElementById('themePickerOverlay');
+  if (overlay) overlay.remove();
+}
+
 function showScreen(screen) {
   currentScreen = screen;
   document.getElementById('navHome').classList.toggle('active', screen === 'home');
@@ -563,11 +679,13 @@ async function renderHome() {
           <button onclick="trySync()">Sync now</button>
         </div>
       ` : ''}
-      <div class="home-hero">
-        <img id="heroImg" src="icon.png">
-        <button class="cover-edit-badge" onclick="triggerCoverPhotoUpload()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
-        </button>
+      <div class="home-hero-wrap">
+        <div class="home-hero">
+          <img id="heroImg" src="icon.png">
+          <button class="cover-edit-badge" onclick="triggerCoverPhotoUpload()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+          </button>
+        </div>
       </div>
       <div class="home-actions-row">
         <button class="action-btn" onclick="openCamera('tlo')">
@@ -1038,8 +1156,8 @@ function openLoadShareMenu(source, id) {
   overlay.innerHTML = `
     <div class="day-sheet-inner">
       <div class="day-sheet-title">Share Load</div>
-      <button class="save-btn" style="background:var(--black); margin-bottom:10px;" onclick="shareLoadPhotosOnly('${source}', '${id}')">Photos Only</button>
-      <button class="save-btn" style="background:var(--black); margin-bottom:10px;" onclick="shareLoadDetailsOnly('${source}', '${id}')">Details Only (text)</button>
+      <button class="save-btn" style="background:var(--primary); box-shadow:0 6px 18px var(--primary-glow); margin-bottom:10px;" onclick="shareLoadPhotosOnly('${source}', '${id}')">Photos Only</button>
+      <button class="save-btn" style="background:var(--primary); box-shadow:0 6px 18px var(--primary-glow); margin-bottom:10px;" onclick="shareLoadDetailsOnly('${source}', '${id}')">Details Only (text)</button>
       <button class="save-btn" onclick="shareLoadEverything('${source}', '${id}')">Everything (Photos + Details)</button>
       <button class="cancel-link" onclick="closeLoadShareMenu()">Cancel</button>
     </div>
@@ -1818,13 +1936,9 @@ function renderCalendarGrid() {
 
   main.innerHTML = `
     <div class="cal-actions-row">
-      <button class="print-cal-btn" onclick="downloadCalendarPdf()">
+      <button class="print-cal-btn" onclick="openPdfMonthPicker()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
-        Download PDF
-      </button>
-      <button class="print-cal-btn" onclick="shareCalendarPdf()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
-        Share PDF
+        Export PDF (choose months)
       </button>
     </div>
     <div id="calPrintSection">
@@ -1859,9 +1973,8 @@ function changeMonth(delta) {
 /* =========================================================
    CALENDAR PDF — works the same way on iPhone and Android
    ========================================================= */
-async function buildCalendarPdfBlob() {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+async function addMonthToPdf(doc, isFirstPage) {
+  if (!isFirstPage) doc.addPage();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 30;
@@ -1897,41 +2010,126 @@ async function buildCalendarPdfBlob() {
       renderedHeight += sliceHeight;
     }
   }
-
-  return doc.output('blob');
 }
 
-async function downloadCalendarPdf() {
-  showToast('Building PDF...');
-  try {
-    const blob = await buildCalendarPdfBlob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `WTG-Schedule-${calendarViewDate.getFullYear()}-${calendarViewDate.getMonth() + 1}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-    showToast('PDF downloaded');
-  } catch (err) {
-    showToast('PDF failed: ' + err.message);
+/* =========================================================
+   MULTI-MONTH PDF PICKER
+   ========================================================= */
+let pdfPickerYear = new Date().getFullYear();
+let pdfSelectedMonthKeys = new Set();
+
+function openPdfMonthPicker() {
+  pdfPickerYear = calendarViewDate.getFullYear();
+  pdfSelectedMonthKeys = new Set([`${calendarViewDate.getFullYear()}-${calendarViewDate.getMonth()}`]);
+  renderPdfMonthPicker();
+}
+
+function renderPdfMonthPicker() {
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const existing = document.getElementById('pdfPickerOverlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'day-sheet';
+  overlay.id = 'pdfPickerOverlay';
+  overlay.innerHTML = `
+    <div class="day-sheet-inner">
+      <div class="day-sheet-title">Select Months to Export</div>
+      <div class="cal-header" style="margin-bottom:14px;">
+        <button onclick="changePdfPickerYear(-1)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div class="cal-title">${pdfPickerYear}</div>
+        <button onclick="changePdfPickerYear(1)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
+      <div class="month-picker-grid">
+        ${monthNames.map((name, i) => {
+          const key = `${pdfPickerYear}-${i}`;
+          const checked = pdfSelectedMonthKeys.has(key) ? 'checked' : '';
+          return `
+            <label class="month-checkbox">
+              <input type="checkbox" ${checked} onchange="togglePdfMonth('${key}', this.checked)">
+              ${name}
+            </label>
+          `;
+        }).join('')}
+      </div>
+      <button class="save-btn" style="margin-bottom:10px;" onclick="generateSelectedMonthsPdf('download')">Download PDF</button>
+      <button class="save-btn" style="background:var(--primary); box-shadow:0 6px 18px var(--primary-glow);" onclick="generateSelectedMonthsPdf('share')">Share PDF</button>
+      <button class="cancel-link" onclick="closePdfMonthPicker()">Cancel</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function changePdfPickerYear(delta) {
+  pdfPickerYear += delta;
+  renderPdfMonthPicker();
+}
+
+function togglePdfMonth(key, isChecked) {
+  if (isChecked) pdfSelectedMonthKeys.add(key);
+  else pdfSelectedMonthKeys.delete(key);
+}
+
+function closePdfMonthPicker() {
+  const overlay = document.getElementById('pdfPickerOverlay');
+  if (overlay) overlay.remove();
+}
+
+async function generateSelectedMonthsPdf(action) {
+  if (pdfSelectedMonthKeys.size === 0) {
+    showToast('Select at least one month');
+    return;
   }
-}
-
-async function shareCalendarPdf() {
+  const sortedKeys = Array.from(pdfSelectedMonthKeys).sort();
+  closePdfMonthPicker();
   showToast('Building PDF...');
+
+  const originalDate = calendarViewDate;
   try {
-    const blob = await buildCalendarPdfBlob();
-    const filename = `WTG-Schedule-${calendarViewDate.getFullYear()}-${calendarViewDate.getMonth() + 1}.pdf`;
-    const file = new File([blob], filename, { type: 'application/pdf' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: 'WTG Tracker Schedule' });
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+    let isFirstPage = true;
+    for (const key of sortedKeys) {
+      const [y, m] = key.split('-').map(Number);
+      calendarViewDate = new Date(y, m, 1);
+      renderCalendarGrid();
+      await addMonthToPdf(doc, isFirstPage);
+      isFirstPage = false;
+    }
+    calendarViewDate = originalDate;
+    renderCalendarGrid();
+
+    const blob = doc.output('blob');
+    const filename = sortedKeys.length === 1
+      ? `WTG-Schedule-${sortedKeys[0]}.pdf`
+      : `WTG-Schedule-${sortedKeys.length}-months.pdf`;
+
+    if (action === 'download') {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      showToast('PDF downloaded');
     } else {
-      showToast('Sharing not supported here — try Download PDF instead');
+      const file = new File([blob], filename, { type: 'application/pdf' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'WTG Tracker Schedule' });
+      } else {
+        showToast('Sharing not supported here — try Download PDF instead');
+      }
     }
   } catch (err) {
-    if (err.name !== 'AbortError') showToast('Share failed: ' + err.message);
+    calendarViewDate = originalDate;
+    renderCalendarGrid();
+    if (err.name !== 'AbortError') showToast('PDF failed: ' + err.message);
   }
 }
 
@@ -2178,6 +2376,7 @@ window.addEventListener('online', () => { updateStatusPill(); trySync(); });
 window.addEventListener('offline', updateStatusPill);
 
 (async function init() {
+  applyTheme(localStorage.getItem('wtgTheme') || 'black');
   await openDB();
   updateStatusPill();
   renderHome();
