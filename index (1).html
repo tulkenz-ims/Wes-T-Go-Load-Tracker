@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#2A4CB4">
+<title>Wes-T-Go Load Tracker</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --blue: #2A4CB4;
+    --blue-dark: #1E3785;
+    --white: #FFFFFF;
+    --black: #14161A;
+    --gray: #6B7280;
+    --gray-light: #E7E9EE;
+    --gray-bg: #F4F5F8;
+    --green: #1E7A32;
+    --green-dark: #145223;
+    --red: #C0392B;
+    --radius: 14px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--gray-bg);
+    color: var(--black);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
+    overscroll-behavior: none;
+  }
+  #app { height: 100%; display: flex; flex-direction: column; }
+
+  /* ---- Header ---- */
+  header {
+    background: var(--blue);
+    color: var(--white);
+    padding: 18px 20px calc(18px + var(--safe-top)) 20px;
+    margin-top: calc(-1 * var(--safe-top));
+    padding-top: calc(18px + var(--safe-top));
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1 { font-size: 19px; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
+  header .status {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.15);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+  .dot.offline { background: #F1C40F; }
+  .dot.syncing { background: #F1C40F; animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: 0.3; } }
+
+  main { flex: 1; overflow-y: auto; padding: 20px; padding-bottom: 100px; }
+
+  /* ---- Big action button (home screen) ---- */
+  .home { display: flex; flex-direction: column; gap: 16px; height: 100%; }
+  .capture-btn {
+    background: linear-gradient(rgba(42,76,180,0.72), rgba(30,55,133,0.82)), url('icon.png') center 30% / cover;
+    color: var(--white);
+    border: none;
+    border-radius: var(--radius);
+    padding: 40px 20px;
+    font-family: inherit;
+    font-size: 22px;
+    font-weight: 800;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    flex: 1;
+    min-height: 220px;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  }
+  .capture-btn:active { filter: brightness(0.85); }
+  .capture-btn svg { width: 56px; height: 56px; }
+
+  .secondary-row { display: flex; gap: 12px; }
+  .secondary-btn {
+    flex: 1;
+    background: var(--white);
+    border: 2px solid var(--gray-light);
+    border-radius: var(--radius);
+    padding: 18px 12px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--black);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+  .secondary-btn svg { width: 26px; height: 26px; color: var(--blue); }
+
+  .pending-banner {
+    background: #FFF7E6;
+    border: 1px solid #F1C40F;
+    color: #8A6D00;
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .pending-banner button {
+    background: var(--blue);
+    color: var(--white);
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: inherit;
+  }
+
+  /* ---- Camera view ---- */
+  .camera-view { position: fixed; inset: 0; background: #000; z-index: 50; display: flex; flex-direction: column; }
+  .camera-view video { flex: 1; width: 100%; object-fit: cover; }
+  .camera-controls {
+    background: #000;
+    padding: 20px 24px calc(28px + var(--safe-bottom)) 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .shutter-btn {
+    width: 74px; height: 74px; border-radius: 50%;
+    background: var(--white); border: 5px solid rgba(255,255,255,0.4);
+    cursor: pointer;
+  }
+  .cam-icon-btn {
+    background: none; border: none; color: var(--white);
+    width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .cam-icon-btn svg { width: 28px; height: 28px; }
+
+  /* ---- Review / form screen ---- */
+  .photo-strip { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 18px; }
+  .photo-thumb {
+    position: relative; flex-shrink: 0; width: 84px; height: 84px;
+    border-radius: 10px; overflow: hidden; border: 2px solid var(--gray-light);
+  }
+  .photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-thumb .tag {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: rgba(20,22,26,0.75); color: var(--white);
+    font-size: 9px; font-weight: 700; text-align: center; padding: 2px 0;
+    text-transform: uppercase; letter-spacing: 0.03em;
+  }
+  .photo-thumb .remove {
+    position: absolute; top: 2px; right: 2px; width: 18px; height: 18px;
+    border-radius: 50%; background: rgba(0,0,0,0.6); color: var(--white);
+    display: flex; align-items: center; justify-content: center; font-size: 12px; border: none;
+  }
+  .add-photo-thumb {
+    flex-shrink: 0; width: 84px; height: 84px; border-radius: 10px;
+    border: 2px dashed var(--gray); display: flex; align-items: center; justify-content: center;
+    background: var(--white); cursor: pointer; color: var(--gray);
+  }
+  .add-photo-thumb svg { width: 28px; height: 28px; }
+
+  .photo-type-picker { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+  .photo-type-picker button {
+    flex: 1; min-width: 90px;
+    padding: 12px 8px; border-radius: 10px; border: 2px solid var(--gray-light);
+    background: var(--white); font-family: inherit; font-weight: 700; font-size: 13px; color: var(--black);
+  }
+  .photo-type-picker button.active { border-color: var(--blue); background: #EEF1FB; color: var(--blue); }
+
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 13px; font-weight: 700; color: var(--gray); margin-bottom: 6px; }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 14px; border-radius: 10px; border: 2px solid var(--gray-light);
+    font-family: inherit; font-size: 16px; background: var(--white); color: var(--black);
+  }
+  .field textarea { resize: vertical; min-height: 70px; }
+  .field .timestamp { font-size: 13px; color: var(--gray); font-weight: 600; }
+
+  .save-btn {
+    width: 100%; background: var(--green); color: var(--white); border: none;
+    border-radius: var(--radius); padding: 18px; font-family: inherit; font-size: 17px; font-weight: 800;
+    cursor: pointer; margin-top: 8px;
+  }
+  .save-btn:active { background: var(--green-dark); }
+  .cancel-link {
+    display: block; text-align: center; padding: 14px; color: var(--gray); font-weight: 600;
+    font-size: 14px; background: none; border: none; width: 100%; font-family: inherit; cursor: pointer;
+  }
+
+  /* ---- Loads list / viewer ---- */
+  .load-card {
+    background: var(--white); border-radius: var(--radius); padding: 14px;
+    margin-bottom: 12px; border: 1px solid var(--gray-light);
+  }
+  .load-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .load-card-title { font-weight: 800; font-size: 15px; }
+  .load-card-date { font-size: 12px; color: var(--gray); font-weight: 600; }
+  .load-card-meta { font-size: 13px; color: var(--gray); margin-bottom: 10px; }
+  .load-card-photos { display: flex; gap: 8px; overflow-x: auto; }
+  .load-card-photos img { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; }
+  .sync-pill {
+    font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px;
+  }
+  .sync-pill.pending { background: #FFF7E6; color: #8A6D00; }
+  .sync-pill.synced { background: #E8F5EA; color: var(--green-dark); }
+
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--gray); }
+  .empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.4; }
+
+  /* ---- Bottom nav ---- */
+  nav {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--white); border-top: 1px solid var(--gray-light);
+    display: flex; padding-bottom: var(--safe-bottom);
+    z-index: 10;
+  }
+  nav button {
+    flex: 1; background: none; border: none; padding: 12px 0 10px 0;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    color: var(--gray); font-family: inherit; font-size: 11px; font-weight: 700; cursor: pointer;
+  }
+  nav button.active { color: var(--blue); }
+  nav button svg { width: 22px; height: 22px; }
+
+  .toast {
+    position: fixed; bottom: calc(80px + var(--safe-bottom)); left: 20px; right: 20px;
+    background: var(--black); color: var(--white); padding: 14px 18px; border-radius: 10px;
+    font-size: 14px; font-weight: 600; text-align: center; z-index: 60;
+    opacity: 0; transform: translateY(10px); transition: all 0.25s ease; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Wes-T-Go Loads</h1>
+    <div class="status" id="statusPill">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">Online</span>
+    </div>
+  </header>
+  <main id="main"></main>
+  <nav>
+    <button id="navHome" class="active" onclick="showScreen('home')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+      Home
+    </button>
+    <button id="navLoads" onclick="showScreen('loads')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>
+      All Loads
+    </button>
+  </nav>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   CONFIG — Supabase project credentials
+   ========================================================= */
+const SUPABASE_URL = 'https://ltdzvjibbajimftlmjhb.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0ZHp2amliYmFqaW1mdGxtamhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk4NzY2NjAsImV4cCI6MjEwNTQ1MjY2MH0.phWnBHheoYtfxJMmGewMvhIzO4mGmuxjvGfwjuTrDdc';
+const STORE_LOCATIONS = ["Alsup's", "Kent Quik", "Other"];
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* =========================================================
+   INDEXEDDB — local offline storage
+   ========================================================= */
+const DB_NAME = 'wtg-loads-db';
+const DB_VERSION = 1;
+let db;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('pendingLoads')) {
+        d.createObjectStore('pendingLoads', { keyPath: 'localId' });
+      }
+      if (!d.objectStoreNames.contains('cachedLoads')) {
+        d.createObjectStore('cachedLoads', { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = (e) => { db = e.target.result; resolve(db); };
+    req.onerror = (e) => reject(e);
+  });
+}
+
+function idbPut(storeName, value) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, 'readwrite');
+    tx.objectStore(storeName).put(value);
+    tx.oncomplete = () => resolve();
+    tx.onerror = (e) => reject(e);
+  });
+}
+
+function idbDelete(storeName, key) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, 'readwrite');
+    tx.objectStore(storeName).delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = (e) => reject(e);
+  });
+}
+
+function idbGetAll(storeName) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, 'readonly');
+    const req = tx.objectStore(storeName).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = (e) => reject(e);
+  });
+}
+
+/* =========================================================
+   STATE
+   ========================================================= */
+let currentScreen = 'home';
+let cameraStream = null;
+let draftPhotos = []; // { blob, type, url }
+let activePhotoType = 'tlo';
+
+/* =========================================================
+   UI HELPERS
+   ========================================================= */
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function updateStatusPill() {
+  const dot = document.getElementById('statusDot');
+  const text = document.getElementById('statusText');
+  if (!navigator.onLine) {
+    dot.className = 'dot offline';
+    text.textContent = 'Offline';
+  } else {
+    dot.className = 'dot';
+    text.textContent = 'Online';
+  }
+}
+
+function showScreen(screen) {
+  currentScreen = screen;
+  document.getElementById('navHome').classList.toggle('active', screen === 'home');
+  document.getElementById('navLoads').classList.toggle('active', screen === 'loads');
+  if (screen === 'home') renderHome();
+  if (screen === 'loads') renderLoadsList();
+}
+
+/* =========================================================
+   HOME SCREEN
+   ========================================================= */
+async function renderHome() {
+  const pending = await idbGetAll('pendingLoads');
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <div class="home">
+      ${pending.length > 0 ? `
+        <div class="pending-banner">
+          <span>${pending.length} load${pending.length > 1 ? 's' : ''} waiting to sync</span>
+          <button onclick="trySync()">Sync now</button>
+        </div>
+      ` : ''}
+      <button class="capture-btn" onclick="openCamera('tlo')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3a1 1 0 011 1v11a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1z"/><circle cx="12" cy="13" r="4"/></svg>
+        New Load — Take Photo
+      </button>
+      <div class="secondary-row">
+        <button class="secondary-btn" onclick="triggerUpload('tlo')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
+          Upload Photo
+        </button>
+        <button class="secondary-btn" onclick="showScreen('loads')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>
+          View All Loads
+        </button>
+      </div>
+    </div>
+    <input type="file" id="fileUploadInput" accept="image/*" style="display:none" onchange="handleFileUpload(event)">
+  `;
+}
+
+function triggerUpload(type) {
+  activePhotoType = type;
+  document.getElementById('fileUploadInput').click();
+}
+
+function handleFileUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  draftPhotos.push({ blob: file, type: activePhotoType, url: URL.createObjectURL(file) });
+  e.target.value = '';
+  renderReviewScreen();
+}
+
+/* =========================================================
+   CAMERA
+   ========================================================= */
+async function openCamera(type) {
+  activePhotoType = type;
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false
+    });
+  } catch (err) {
+    showToast('Camera unavailable: ' + err.message);
+    return;
+  }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'camera-view';
+  overlay.id = 'cameraOverlay';
+  overlay.innerHTML = `
+    <video autoplay playsinline id="cameraVideo"></video>
+    <div class="camera-controls">
+      <button class="cam-icon-btn" onclick="closeCamera()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+      <button class="shutter-btn" onclick="capturePhoto()"></button>
+      <div style="width:48px"></div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  const video = document.getElementById('cameraVideo');
+  video.srcObject = cameraStream;
+}
+
+function closeCamera() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+  const overlay = document.getElementById('cameraOverlay');
+  if (overlay) overlay.remove();
+}
+
+function capturePhoto() {
+  const video = document.getElementById('cameraVideo');
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  canvas.toBlob((blob) => {
+    draftPhotos.push({ blob, type: activePhotoType, url: URL.createObjectURL(blob) });
+    closeCamera();
+    renderReviewScreen();
+  }, 'image/jpeg', 0.85);
+}
+
+/* =========================================================
+   REVIEW / DETAILS SCREEN
+   ========================================================= */
+function renderReviewScreen() {
+  currentScreen = 'review';
+  const now = new Date();
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <div class="field">
+      <label>Photos</label>
+      <div class="photo-strip" id="photoStrip"></div>
+    </div>
+    <div class="field">
+      <label>Tag next photo as</label>
+      <div class="photo-type-picker" id="typePicker">
+        <button data-type="tlo" onclick="setActiveType('tlo')">TLO / Manifest</button>
+        <button data-type="bol" onclick="setActiveType('bol')">Fuel BOL</button>
+        <button data-type="other" onclick="setActiveType('other')">Other</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Captured</label>
+      <div class="timestamp">${now.toLocaleString()}</div>
+    </div>
+    <div class="field">
+      <label>Load # (optional)</label>
+      <input type="text" id="fieldLoadNumber" inputmode="text" placeholder="e.g. 48213">
+    </div>
+    <div class="field">
+      <label>Store / Location (optional)</label>
+      <select id="fieldStore">
+        <option value="">Select...</option>
+        ${STORE_LOCATIONS.map(s => `<option value="${s}">${s}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field">
+      <label>Store # (optional)</label>
+      <input type="text" id="fieldStoreNumber" inputmode="numeric" placeholder="e.g. 1042">
+    </div>
+    <div class="field">
+      <label>Notes (optional)</label>
+      <textarea id="fieldNotes" placeholder="Anything worth noting..."></textarea>
+    </div>
+
+    <button class="save-btn" onclick="saveLoad()">Save Load</button>
+    <button class="cancel-link" onclick="discardDraft()">Discard</button>
+  `;
+  renderPhotoStrip();
+  setActiveType(activePhotoType);
+}
+
+function setActiveType(type) {
+  activePhotoType = type;
+  document.querySelectorAll('#typePicker button').forEach(b => {
+    b.classList.toggle('active', b.dataset.type === type);
+  });
+}
+
+function renderPhotoStrip() {
+  const strip = document.getElementById('photoStrip');
+  if (!strip) return;
+  strip.innerHTML = draftPhotos.map((p, i) => `
+    <div class="photo-thumb">
+      <img src="${p.url}">
+      <span class="tag">${p.type}</span>
+      <button class="remove" onclick="removeDraftPhoto(${i})">&times;</button>
+    </div>
+  `).join('') + `
+    <div class="add-photo-thumb" onclick="openCamera(activePhotoType)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+    </div>
+  `;
+}
+
+function removeDraftPhoto(i) {
+  draftPhotos.splice(i, 1);
+  renderPhotoStrip();
+}
+
+function discardDraft() {
+  draftPhotos = [];
+  showScreen('home');
+}
+
+/* =========================================================
+   SAVE LOAD (works fully offline)
+   ========================================================= */
+async function saveLoad() {
+  if (draftPhotos.length === 0) {
+    showToast('Add at least one photo first');
+    return;
+  }
+  const localId = 'local-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+  const record = {
+    localId,
+    created_at: new Date().toISOString(),
+    load_date: new Date().toISOString().slice(0, 10),
+    load_number: document.getElementById('fieldLoadNumber').value || null,
+    store_location: document.getElementById('fieldStore').value || null,
+    store_number: document.getElementById('fieldStoreNumber').value || null,
+    notes: document.getElementById('fieldNotes').value || null,
+    photos: await Promise.all(draftPhotos.map(async p => ({
+      type: p.type,
+      blob: p.blob
+    })))
+  };
+  await idbPut('pendingLoads', record);
+  draftPhotos = [];
+  showToast('Load saved on device');
+  showScreen('home');
+  trySync();
+}
+
+/* =========================================================
+   SYNC — uploads pending loads to Supabase, then frees local storage
+   ========================================================= */
+let isSyncing = false;
+
+async function trySync() {
+  if (isSyncing || !navigator.onLine) return;
+  const pending = await idbGetAll('pendingLoads');
+  if (pending.length === 0) return;
+
+  isSyncing = true;
+  document.getElementById('statusDot').className = 'dot syncing';
+  document.getElementById('statusText').textContent = 'Syncing...';
+
+  for (const record of pending) {
+    try {
+      const { data: loadRow, error: loadErr } = await sb
+        .from('loads')
+        .insert({
+          created_at: record.created_at,
+          load_date: record.load_date,
+          load_number: record.load_number,
+          store_location: record.store_location,
+          store_number: record.store_number,
+          notes: record.notes
+        })
+        .select()
+        .single();
+      if (loadErr) throw loadErr;
+
+      for (const photo of record.photos) {
+        const path = `${loadRow.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+        const { error: upErr } = await sb.storage.from('load-photos').upload(path, photo.blob, {
+          contentType: 'image/jpeg'
+        });
+        if (upErr) throw upErr;
+
+        const { error: photoRowErr } = await sb.from('load_photos').insert({
+          load_id: loadRow.id,
+          photo_type: photo.type,
+          storage_path: path
+        });
+        if (photoRowErr) throw photoRowErr;
+      }
+
+      // Success: remove from local pending queue — this is what frees phone storage
+      await idbDelete('pendingLoads', record.localId);
+    } catch (err) {
+      console.error('Sync failed for', record.localId, err);
+      // Leave it in the queue, retry next time
+    }
+  }
+
+  isSyncing = false;
+  updateStatusPill();
+  if (currentScreen === 'home') renderHome();
+  if (currentScreen === 'loads') renderLoadsList();
+  showToast('Sync complete');
+}
+
+/* =========================================================
+   LOADS LIST / VIEWER
+   ========================================================= */
+async function renderLoadsList() {
+  const main = document.getElementById('main');
+  main.innerHTML = `<div id="loadsContainer"><div class="empty-state">Loading...</div></div>`;
+
+  const pending = await idbGetAll('pendingLoads');
+  let remoteLoads = [];
+  let remotePhotosByLoad = {};
+
+  if (navigator.onLine) {
+    try {
+      const { data: loads } = await sb.from('loads').select('*').order('created_at', { ascending: false }).limit(100);
+      remoteLoads = loads || [];
+      const { data: photos } = await sb.from('load_photos').select('*');
+      (photos || []).forEach(p => {
+        if (!remotePhotosByLoad[p.load_id]) remotePhotosByLoad[p.load_id] = [];
+        remotePhotosByLoad[p.load_id].push(p);
+      });
+    } catch (err) {
+      console.error('Failed to fetch loads', err);
+    }
+  }
+
+  const container = document.getElementById('loadsContainer');
+  if (pending.length === 0 && remoteLoads.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>
+        <div>No loads yet</div>
+      </div>
+    `;
+    return;
+  }
+
+  let html = '';
+
+  pending.forEach(p => {
+    const thumbs = p.photos.map(ph => `<img src="${URL.createObjectURL(ph.blob)}">`).join('');
+    html += `
+      <div class="load-card">
+        <div class="load-card-top">
+          <div>
+            <div class="load-card-title">${p.load_number ? 'Load #' + p.load_number : 'Load'}</div>
+            <div class="load-card-date">${new Date(p.created_at).toLocaleString()}</div>
+          </div>
+          <span class="sync-pill pending">Pending sync</span>
+        </div>
+        <div class="load-card-meta">${[p.store_location, p.store_number, p.notes].filter(Boolean).join(' · ') || 'No notes'}</div>
+        <div class="load-card-photos">${thumbs}</div>
+      </div>
+    `;
+  });
+
+  remoteLoads.forEach(l => {
+    const photos = remotePhotosByLoad[l.id] || [];
+    const thumbs = photos.map(ph => {
+      const { data } = sb.storage.from('load-photos').getPublicUrl(ph.storage_path);
+      return `<img src="${data.publicUrl}">`;
+    }).join('');
+    html += `
+      <div class="load-card">
+        <div class="load-card-top">
+          <div>
+            <div class="load-card-title">${l.load_number ? 'Load #' + l.load_number : 'Load'}</div>
+            <div class="load-card-date">${new Date(l.created_at).toLocaleString()}</div>
+          </div>
+          <span class="sync-pill synced">Synced</span>
+        </div>
+        <div class="load-card-meta">${[l.store_location, l.store_number, l.notes].filter(Boolean).join(' · ') || 'No notes'}</div>
+        <div class="load-card-photos">${thumbs}</div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+/* =========================================================
+   INIT
+   ========================================================= */
+window.addEventListener('online', () => { updateStatusPill(); trySync(); });
+window.addEventListener('offline', updateStatusPill);
+
+(async function init() {
+  await openDB();
+  updateStatusPill();
+  renderHome();
+  if (navigator.onLine) trySync();
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW registration failed', err));
+  }
+})();
+</script>
+</body>
+</html>

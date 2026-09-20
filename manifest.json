@@ -1,0 +1,19 @@
+{
+  "name": "Wes-T-Go Load Tracker",
+  "short_name": "WTG Loads",
+  "description": "Offline load, TLO/manifest, and fuel BOL photo tracker for Wes-T-Go drivers.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F4F5F8",
+  "theme_color": "#2A4CB4",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
