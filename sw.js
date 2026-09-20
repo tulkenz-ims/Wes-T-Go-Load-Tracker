@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wtg-loads-shell-v1';
+const CACHE_NAME = 'wtg-loads-shell-v2';
 const SHELL_FILES = [
   './',
   './index.html',
@@ -28,16 +28,17 @@ self.addEventListener('fetch', (event) => {
   // Never intercept calls to Supabase — those need the real network
   if (url.hostname.includes('supabase.co')) return;
 
-  // App shell: cache-first, so the app itself always opens offline
+  // App shell: network-first, so a new deploy is picked up right away.
+  // Falls back to the cached copy only when there's genuinely no connection.
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      return cached || fetch(event.request).then((response) => {
+    fetch(event.request)
+      .then((response) => {
         if (event.request.method === 'GET' && response.ok) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
         }
         return response;
-      }).catch(() => cached);
-    })
+      })
+      .catch(() => caches.match(event.request))
   );
 });
