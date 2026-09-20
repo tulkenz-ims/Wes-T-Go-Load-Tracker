@@ -12,6 +12,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <style>
   :root {
     --blue: #2A4CB4;
@@ -75,45 +77,40 @@
 
   /* ---- Big action button (home screen) ---- */
   .home { display: flex; flex-direction: column; gap: 16px; height: 100%; }
+  .home-actions-row { display: flex; gap: 12px; flex: 1; }
   .capture-btn {
     background: linear-gradient(rgba(42,76,180,0.72), rgba(30,55,133,0.82)), url('icon.png') center 30% / cover;
     color: var(--white);
     border: none;
     border-radius: var(--radius);
-    padding: 40px 20px;
+    padding: 28px 14px;
     font-family: inherit;
-    font-size: 22px;
+    font-size: 16px;
     font-weight: 800;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 10px;
     cursor: pointer;
     flex: 1;
     min-height: 220px;
     text-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    text-align: center;
+  }
+  .capture-btn.upload-variant {
+    background: linear-gradient(var(--blue), var(--blue-dark));
   }
   .capture-btn:active { filter: brightness(0.85); }
-  .capture-btn svg { width: 56px; height: 56px; }
-
-  .secondary-row { display: flex; gap: 12px; }
-  .secondary-btn {
-    flex: 1;
-    background: var(--white);
-    border: 2px solid var(--gray-light);
-    border-radius: var(--radius);
-    padding: 18px 12px;
-    font-family: inherit;
-    font-size: 15px;
-    font-weight: 700;
-    color: var(--black);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
+  .capture-btn svg { width: 40px; height: 40px; }
+  .cover-btn-wrap { position: relative; flex: 1; display: flex; }
+  .cover-btn-wrap .capture-btn { width: 100%; }
+  .cover-edit-badge {
+    position: absolute; top: 10px; right: 10px; width: 34px; height: 34px;
+    border-radius: 50%; background: rgba(20,22,26,0.55); border: none;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
   }
-  .secondary-btn svg { width: 26px; height: 26px; color: var(--blue); }
+  .cover-edit-badge svg { width: 16px; height: 16px; color: var(--white); }
 
   .pending-banner {
     background: #FFF7E6;
@@ -318,6 +315,31 @@
 
   /* ---- Schedule / calendar ---- */
   .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .print-cal-btn {
+    background: var(--white); border: 2px solid var(--gray-light); border-radius: 10px;
+    padding: 8px 12px; display: flex; align-items: center; gap: 6px; cursor: pointer;
+    font-family: inherit; font-size: 12px; font-weight: 700; color: var(--blue);
+  }
+  .print-cal-btn svg { width: 16px; height: 16px; }
+  .cal-actions-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .print-only { display: none; }
+
+  @media print {
+    header, nav, .print-cal-btn, .cal-header button, .add-pto-btn, .close-sheet-link, .toast,
+    .day-sheet, #cameraOverlay, #photoViewerOverlay { display: none !important; }
+    body { background: white; padding: 0; }
+    main { padding: 0; overflow: visible; }
+    .cal-legend { font-size: 10px; }
+    .cal-day { border: 1px solid #999; }
+    .cal-day.off-day { background: #eef1fb !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .cal-day.pto-day { background: #fdefe0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .print-only { display: block; margin-top: 24px; }
+    .print-only h2 { font-size: 16px; margin-bottom: 12px; }
+    .print-pto-entry { break-inside: avoid; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid #ccc; }
+    .print-pto-entry .range { font-weight: 800; font-size: 13px; margin-bottom: 4px; }
+    .print-pto-entry .notes { font-size: 12px; color: #444; margin-bottom: 8px; }
+    .print-pto-entry img { max-width: 280px; max-height: 280px; display: block; }
+  }
   .cal-header button {
     background: var(--white); border: 2px solid var(--gray-light); border-radius: 10px;
     width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer;
@@ -397,13 +419,13 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>
       All Loads
     </button>
-    <button id="navTrash" onclick="showScreen('trash')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>
-      Trash
-    </button>
     <button id="navSchedule" onclick="showScreen('schedule')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
       Schedule
+    </button>
+    <button id="navTrash" onclick="showScreen('trash')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>
+      Trash
     </button>
   </nav>
 </div>
@@ -416,6 +438,7 @@
 const SUPABASE_URL = 'https://ltdzvjibbajimftlmjhb.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0ZHp2amliYmFqaW1mdGxtamhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk4NzY2NjAsImV4cCI6MjEwNTQ1MjY2MH0.phWnBHheoYtfxJMmGewMvhIzO4mGmuxjvGfwjuTrDdc';
 const STORE_LOCATIONS = ["Alsup's", "Kent Quik", "Other"];
+const COVER_PHOTO_PATH = 'settings/cover.jpg'; // fixed path — uploading a new one overwrites it, shared across devices
 
 // Work rotation: 6 days on, 2 days off. Anchor is the first day of a known off period.
 const WORK_OFF_ANCHOR = '2026-09-14'; // first of two off-days
@@ -539,23 +562,62 @@ async function renderHome() {
           <button onclick="trySync()">Sync now</button>
         </div>
       ` : ''}
-      <button class="capture-btn" onclick="openCamera('tlo')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3a1 1 0 011 1v11a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1z"/><circle cx="12" cy="13" r="4"/></svg>
-        New Load — Take Photo
-      </button>
-      <div class="secondary-row">
-        <button class="secondary-btn" onclick="triggerUpload('tlo')">
+      <div class="home-actions-row">
+        <div class="cover-btn-wrap">
+          <button class="capture-btn" id="takePhotoBtn" onclick="openCamera('tlo')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3a1 1 0 011 1v11a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1z"/><circle cx="12" cy="13" r="4"/></svg>
+            Take Photo
+          </button>
+          <button class="cover-edit-badge" onclick="event.stopPropagation(); triggerCoverPhotoUpload()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+          </button>
+        </div>
+        <button class="capture-btn upload-variant" onclick="triggerUpload('tlo')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
           Upload Photo
-        </button>
-        <button class="secondary-btn" onclick="showScreen('loads')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>
-          View All Loads
         </button>
       </div>
     </div>
     <input type="file" id="fileUploadInput" accept="image/*" style="display:none" onchange="handleFileUpload(event)">
+    <input type="file" id="coverPhotoInput" accept="image/*" style="display:none" onchange="handleCoverPhotoSelected(event)">
   `;
+  applyCustomCoverIfExists();
+}
+
+function applyCustomCoverIfExists() {
+  const { data } = sb.storage.from('load-photos').getPublicUrl(COVER_PHOTO_PATH);
+  const testUrl = data.publicUrl + '?t=' + Date.now(); // cache-bust so a new upload shows immediately
+  const img = new Image();
+  img.onload = () => {
+    const btn = document.getElementById('takePhotoBtn');
+    if (btn) {
+      btn.style.background = `linear-gradient(rgba(42,76,180,0.72), rgba(30,55,133,0.82)), url('${testUrl}') center 30% / cover`;
+    }
+  };
+  img.onerror = () => { /* no custom cover uploaded yet — keep the default icon.png background */ };
+  img.src = testUrl;
+}
+
+function triggerCoverPhotoUpload() {
+  document.getElementById('coverPhotoInput').click();
+}
+
+async function handleCoverPhotoSelected(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  showToast('Uploading cover photo...');
+  try {
+    const { error } = await sb.storage.from('load-photos').upload(COVER_PHOTO_PATH, file, {
+      contentType: file.type || 'image/jpeg',
+      upsert: true
+    });
+    if (error) throw error;
+    showToast('Cover photo updated');
+    applyCustomCoverIfExists();
+  } catch (err) {
+    showToast('Upload failed: ' + err.message);
+  }
 }
 
 function triggerUpload(type) {
@@ -921,6 +983,129 @@ async function sharePhoto(imageUrl, filename) {
   }
 }
 
+/* =========================================================
+   LOAD-LEVEL SHARE — photos only, details only, or everything
+   ========================================================= */
+async function getLoadFullData(source, id) {
+  if (source === 'pending') {
+    const all = await idbGetAll('pendingLoads');
+    const record = all.find(r => r.localId === id);
+    if (!record) return null;
+    return {
+      load_number: record.load_number,
+      store_location: record.store_location,
+      store_number: record.store_number,
+      notes: record.notes,
+      created_at: record.created_at,
+      photos: record.photos.filter(p => !p.deleted).map(p => ({ type: p.type, blob: p.blob }))
+    };
+  } else {
+    const { data: loadRow } = await sb.from('loads').select('*').eq('id', id).single();
+    const { data: photoRows } = await sb.from('load_photos').select('*').eq('load_id', id).is('deleted_at', null);
+    const photos = [];
+    for (const ph of (photoRows || [])) {
+      const { data } = sb.storage.from('load-photos').getPublicUrl(ph.storage_path);
+      const resp = await fetch(data.publicUrl);
+      const blob = await resp.blob();
+      photos.push({ type: ph.photo_type, blob });
+    }
+    return {
+      load_number: loadRow.load_number,
+      store_location: loadRow.store_location,
+      store_number: loadRow.store_number,
+      notes: loadRow.notes,
+      created_at: loadRow.created_at,
+      photos
+    };
+  }
+}
+
+function loadDetailsText(data) {
+  const lines = [
+    `WTG Tracker — ${data.load_number ? 'Load #' + data.load_number : 'Load'}`,
+    new Date(data.created_at).toLocaleString()
+  ];
+  const metaLine = [data.store_location, data.store_number].filter(Boolean).join(' #');
+  if (metaLine) lines.push(metaLine);
+  if (data.notes) lines.push('Notes: ' + data.notes);
+  return lines.join('\n');
+}
+
+function openLoadShareMenu(source, id) {
+  const overlay = document.createElement('div');
+  overlay.className = 'day-sheet';
+  overlay.id = 'shareMenuOverlay';
+  overlay.innerHTML = `
+    <div class="day-sheet-inner">
+      <div class="day-sheet-title">Share Load</div>
+      <button class="save-btn" style="background:var(--blue); margin-bottom:10px;" onclick="shareLoadPhotosOnly('${source}', '${id}')">Photos Only</button>
+      <button class="save-btn" style="background:var(--blue); margin-bottom:10px;" onclick="shareLoadDetailsOnly('${source}', '${id}')">Details Only (text)</button>
+      <button class="save-btn" onclick="shareLoadEverything('${source}', '${id}')">Everything (Photos + Details)</button>
+      <button class="cancel-link" onclick="closeLoadShareMenu()">Cancel</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function closeLoadShareMenu() {
+  const overlay = document.getElementById('shareMenuOverlay');
+  if (overlay) overlay.remove();
+}
+
+async function shareLoadPhotosOnly(source, id) {
+  closeLoadShareMenu();
+  const data = await getLoadFullData(source, id);
+  if (!data || data.photos.length === 0) { showToast('No photos to share'); return; }
+  try {
+    const files = data.photos.map((p, i) => new File([p.blob], `${data.load_number || 'load'}-${p.type}-${i}.jpg`, { type: p.blob.type || 'image/jpeg' }));
+    if (navigator.canShare && navigator.canShare({ files })) {
+      await navigator.share({ files, title: 'WTG Tracker photos' });
+    } else {
+      showToast('Sharing multiple photos isn\'t supported on this browser — try one at a time');
+    }
+  } catch (err) {
+    if (err.name !== 'AbortError') showToast('Share failed: ' + err.message);
+  }
+}
+
+async function shareLoadDetailsOnly(source, id) {
+  closeLoadShareMenu();
+  const data = await getLoadFullData(source, id);
+  if (!data) { showToast('Load not found'); return; }
+  const text = loadDetailsText(data);
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: 'WTG Tracker Load Details', text });
+    } else if (navigator.clipboard) {
+      await navigator.clipboard.writeText(text);
+      showToast('Details copied to clipboard');
+    } else {
+      showToast('Sharing not supported on this browser');
+    }
+  } catch (err) {
+    if (err.name !== 'AbortError') showToast('Share failed: ' + err.message);
+  }
+}
+
+async function shareLoadEverything(source, id) {
+  closeLoadShareMenu();
+  const data = await getLoadFullData(source, id);
+  if (!data) { showToast('Load not found'); return; }
+  const text = loadDetailsText(data);
+  try {
+    const files = data.photos.map((p, i) => new File([p.blob], `${data.load_number || 'load'}-${p.type}-${i}.jpg`, { type: p.blob.type || 'image/jpeg' }));
+    if (files.length > 0 && navigator.canShare && navigator.canShare({ files })) {
+      await navigator.share({ files, title: 'WTG Tracker Load', text });
+    } else if (navigator.share) {
+      await navigator.share({ title: 'WTG Tracker Load', text });
+    } else {
+      showToast('Sharing not supported on this browser');
+    }
+  } catch (err) {
+    if (err.name !== 'AbortError') showToast('Share failed: ' + err.message);
+  }
+}
+
 async function downloadPhoto(imageUrl, filename) {
   const btn = document.getElementById('downloadBtn');
   btn.disabled = true;
@@ -1004,6 +1189,10 @@ async function renderLoadsList() {
         <div class="load-card-meta">${[p.store_location, p.store_number, p.notes].filter(Boolean).join(' · ') || 'No notes'}</div>
         <div class="load-card-photos">${thumbs}</div>
         <div class="load-card-actions">
+          <button class="edit-action" onclick="openLoadShareMenu('pending', '${p.localId}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+            Share
+          </button>
           <button class="edit-action" onclick="openEditLoad('pending', '${p.localId}')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
             Edit
@@ -1036,6 +1225,10 @@ async function renderLoadsList() {
         <div class="load-card-meta">${[l.store_location, l.store_number, l.notes].filter(Boolean).join(' · ') || 'No notes'}</div>
         <div class="load-card-photos">${thumbs}</div>
         <div class="load-card-actions">
+          <button class="edit-action" onclick="openLoadShareMenu('remote', '${l.id}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+            Share
+          </button>
           <button class="edit-action" onclick="openEditLoad('remote', '${l.id}')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
             Edit
@@ -1581,31 +1774,150 @@ function renderCalendarGrid() {
 
   const dowLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+  const monthStartKey = dateToKey(new Date(year, month, 1));
+  const monthEndKey = dateToKey(new Date(year, month + 1, 0));
+  const monthPto = _ptoCache.filter(p => p.start_date <= monthEndKey && p.end_date >= monthStartKey);
+
+  const printAppendixHtml = monthPto.length > 0 ? `
+    <div class="print-only">
+      <h2>PTO — ${monthName}</h2>
+      ${monthPto.map(p => {
+        const rangeLabel = p.start_date === p.end_date
+          ? keyToDate(p.start_date).toLocaleDateString()
+          : `${keyToDate(p.start_date).toLocaleDateString()} – ${keyToDate(p.end_date).toLocaleDateString()}`;
+        let photoImg = '';
+        if (p.confirmation_photo_path) {
+          const { data } = sb.storage.from('load-photos').getPublicUrl(p.confirmation_photo_path);
+          photoImg = `<img src="${data.publicUrl}">`;
+        }
+        return `
+          <div class="print-pto-entry">
+            <div class="range">${rangeLabel}</div>
+            ${p.notes ? `<div class="notes">${p.notes}</div>` : ''}
+            ${photoImg}
+          </div>
+        `;
+      }).join('')}
+    </div>
+  ` : '';
+
   main.innerHTML = `
-    <div class="cal-header">
-      <button onclick="changeMonth(-1)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+    <div class="cal-actions-row">
+      <button class="print-cal-btn" onclick="downloadCalendarPdf()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
+        Download PDF
       </button>
-      <div class="cal-title">${monthName}</div>
-      <button onclick="changeMonth(1)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      <button class="print-cal-btn" onclick="shareCalendarPdf()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+        Share PDF
       </button>
     </div>
-    <div class="cal-legend">
-      <span><span class="dot" style="background:#EEF1FB;border:1px solid #C7D2EE"></span> Off day</span>
-      <span><span class="dot" style="background:var(--green)"></span> Payday</span>
-      <span><span class="dot" style="background:#FDEFE0;border:1px solid #F0C48A"></span> PTO</span>
+    <div id="calPrintSection">
+      <div class="cal-header">
+        <button onclick="changeMonth(-1)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div class="cal-title">${monthName}</div>
+        <button onclick="changeMonth(1)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
+      <div class="cal-legend">
+        <span><span class="dot" style="background:#EEF1FB;border:1px solid #C7D2EE"></span> Off day</span>
+        <span><span class="dot" style="background:var(--green)"></span> Payday</span>
+        <span><span class="dot" style="background:#FDEFE0;border:1px solid #F0C48A"></span> PTO</span>
+      </div>
+      <div class="cal-grid">
+        ${dowLabels.map(l => `<div class="cal-dow">${l}</div>`).join('')}
+        ${cells}
+      </div>
     </div>
-    <div class="cal-grid">
-      ${dowLabels.map(l => `<div class="cal-dow">${l}</div>`).join('')}
-      ${cells}
-    </div>
+    ${printAppendixHtml}
   `;
 }
 
 function changeMonth(delta) {
   calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + delta, 1);
   renderCalendarGrid();
+}
+
+/* =========================================================
+   CALENDAR PDF — works the same way on iPhone and Android
+   ========================================================= */
+async function buildCalendarPdfBlob() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 30;
+  const usableWidth = pageWidth - margin * 2;
+  const usableHeight = pageHeight - margin * 2;
+
+  const calSection = document.getElementById('calPrintSection');
+  const canvas1 = await html2canvas(calSection, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
+  const imgData1 = canvas1.toDataURL('image/png');
+  const imgHeight1 = Math.min(canvas1.height * (usableWidth / canvas1.width), usableHeight);
+  doc.addImage(imgData1, 'PNG', margin, margin, usableWidth, imgHeight1);
+
+  const appendix = document.querySelector('.print-only');
+  if (appendix) {
+    const prevDisplay = appendix.style.display;
+    appendix.style.display = 'block';
+    const canvas2 = await html2canvas(appendix, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
+    appendix.style.display = prevDisplay;
+
+    const imgData2 = canvas2.toDataURL('image/png');
+    const fullImgHeight = canvas2.height * (usableWidth / canvas2.width);
+
+    // Paginate the appendix across as many pages as needed, since PTO photos can run long
+    let renderedHeight = 0;
+    while (renderedHeight < fullImgHeight) {
+      doc.addPage();
+      const sliceHeight = Math.min(usableHeight, fullImgHeight - renderedHeight);
+      doc.addImage(
+        imgData2, 'PNG',
+        margin, margin - renderedHeight,
+        usableWidth, fullImgHeight
+      );
+      renderedHeight += sliceHeight;
+    }
+  }
+
+  return doc.output('blob');
+}
+
+async function downloadCalendarPdf() {
+  showToast('Building PDF...');
+  try {
+    const blob = await buildCalendarPdfBlob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `WTG-Schedule-${calendarViewDate.getFullYear()}-${calendarViewDate.getMonth() + 1}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    showToast('PDF downloaded');
+  } catch (err) {
+    showToast('PDF failed: ' + err.message);
+  }
+}
+
+async function shareCalendarPdf() {
+  showToast('Building PDF...');
+  try {
+    const blob = await buildCalendarPdfBlob();
+    const filename = `WTG-Schedule-${calendarViewDate.getFullYear()}-${calendarViewDate.getMonth() + 1}.pdf`;
+    const file = new File([blob], filename, { type: 'application/pdf' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'WTG Tracker Schedule' });
+    } else {
+      showToast('Sharing not supported here — try Download PDF instead');
+    }
+  } catch (err) {
+    if (err.name !== 'AbortError') showToast('Share failed: ' + err.message);
+  }
 }
 
 function openDaySheet(dateKey) {
