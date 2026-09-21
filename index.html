@@ -515,8 +515,10 @@ let LOCATIONS = []; // loaded from Supabase, addable in-app
 
 async function loadLocations() {
   try {
-    const { data } = await sb.from('locations').select('*').order('name');
-    LOCATIONS = (data || []).map(l => l.name);
+    const { data } = await sb.from('locations').select('*');
+    LOCATIONS = (data || [])
+      .map(l => l.name)
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
   } catch (err) {
     console.error('Failed to load locations', err);
   }
@@ -718,7 +720,7 @@ async function renderHome() {
       ` : ''}
       <div class="home-hero-wrap">
         <div class="home-hero">
-          <img id="heroImg" src="icon.png">
+          <img id="heroImg" src="${getInitialHeroSrc()}">
           <button class="cover-edit-badge" onclick="triggerCoverPhotoUpload()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
           </button>
@@ -741,15 +743,32 @@ async function renderHome() {
   applyCustomCoverIfExists();
 }
 
+function getInitialHeroSrc() {
+  if (localStorage.getItem('wtgHasCover') === 'true') {
+    const { data } = sb.storage.from('load-photos').getPublicUrl(COVER_PHOTO_PATH);
+    return data.publicUrl + '?t=' + (localStorage.getItem('wtgCoverVersion') || '0');
+  }
+  return 'icon.png';
+}
+
 function applyCustomCoverIfExists() {
   const { data } = sb.storage.from('load-photos').getPublicUrl(COVER_PHOTO_PATH);
-  const testUrl = data.publicUrl + '?t=' + Date.now(); // cache-bust so a new upload shows immediately
+  const cacheBust = Date.now();
+  const testUrl = data.publicUrl + '?t=' + cacheBust; // cache-bust so a new upload shows immediately
   const img = new Image();
   img.onload = () => {
+    localStorage.setItem('wtgHasCover', 'true');
+    localStorage.setItem('wtgCoverVersion', String(cacheBust));
     const heroImg = document.getElementById('heroImg');
-    if (heroImg) heroImg.src = testUrl;
+    // Only swap if it isn't already showing this same cover — avoids an unnecessary re-flash
+    if (heroImg && !heroImg.src.includes(COVER_PHOTO_PATH)) heroImg.src = testUrl;
   };
-  img.onerror = () => { /* no custom cover uploaded yet — keep the default icon.png hero image */ };
+  img.onerror = () => {
+    // No custom cover uploaded yet (or it was removed) — make sure we're on the default
+    localStorage.removeItem('wtgHasCover');
+    const heroImg = document.getElementById('heroImg');
+    if (heroImg && heroImg.src.includes(COVER_PHOTO_PATH)) heroImg.src = 'icon.png';
+  };
   img.src = testUrl;
 }
 
