@@ -914,7 +914,7 @@ function renderReviewScreen() {
     <div class="field">
       <label>Store / Location (optional)</label>
       <select id="fieldStore" onchange="handleStoreSelectChange(this)">
-        <option value="">Select...</option>
+        <option value="">No Assignment</option>
         ${locationOptionsHtml('')}
       </select>
     </div>
@@ -1469,7 +1469,7 @@ function renderEditScreen() {
     <div class="field">
       <label>Store / Location (optional)</label>
       <select id="fieldStore" onchange="handleStoreSelectChange(this)">
-        <option value="">Select...</option>
+        <option value="">No Assignment</option>
         ${locationOptionsHtml(record.store_location)}
       </select>
     </div>
