@@ -511,7 +511,40 @@
    ========================================================= */
 const SUPABASE_URL = 'https://ltdzvjibbajimftlmjhb.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0ZHp2amliYmFqaW1mdGxtamhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk4NzY2NjAsImV4cCI6MjEwNTQ1MjY2MH0.phWnBHheoYtfxJMmGewMvhIzO4mGmuxjvGfwjuTrDdc';
-const STORE_LOCATIONS = ["Alsup's", "Kent Quik", "Other"];
+let LOCATIONS = []; // loaded from Supabase, addable in-app
+
+async function loadLocations() {
+  try {
+    const { data } = await sb.from('locations').select('*').order('name');
+    LOCATIONS = (data || []).map(l => l.name);
+  } catch (err) {
+    console.error('Failed to load locations', err);
+  }
+}
+
+function locationOptionsHtml(selected) {
+  const opts = LOCATIONS.map(s => `<option value="${s}" ${selected === s ? 'selected' : ''}>${s}</option>`).join('');
+  return opts + `<option value="__add_new__">+ Add new location...</option>`;
+}
+
+async function handleStoreSelectChange(selectEl) {
+  if (selectEl.value !== '__add_new__') return;
+  const name = prompt('New location name (store, farm, oil field, airport, etc.):');
+  selectEl.value = ''; // reset selection while we save
+  const trimmed = (name || '').trim();
+  if (!trimmed) return;
+  try {
+    const { error } = await sb.from('locations').insert({ name: trimmed });
+    if (error && !error.message.includes('duplicate')) throw error;
+    await loadLocations();
+    // Re-render whichever select is currently on screen with the new one selected
+    const strEl = document.getElementById('fieldStore');
+    if (strEl) strEl.innerHTML = locationOptionsHtml(trimmed);
+    showToast('Location added');
+  } catch (err) {
+    showToast('Could not add location: ' + err.message);
+  }
+}
 const COVER_PHOTO_PATH = 'settings/cover.jpg'; // fixed path — uploading a new one overwrites it, shared across devices
 
 // Work rotation: 6 days on, 2 days off. Anchor is the first day of a known off period.
@@ -846,6 +879,7 @@ function renderReviewScreen() {
       <div class="photo-type-picker" id="typePicker">
         <button data-type="tlo" onclick="setActiveType('tlo')">TLO / Manifest</button>
         <button data-type="bol" onclick="setActiveType('bol')">Fuel BOL</button>
+        <button data-type="dl" onclick="setActiveType('dl')">Delivery Log</button>
         <button data-type="other" onclick="setActiveType('other')">Other</button>
       </div>
     </div>
@@ -860,9 +894,9 @@ function renderReviewScreen() {
     </div>
     <div class="field">
       <label>Store / Location (optional)</label>
-      <select id="fieldStore">
+      <select id="fieldStore" onchange="handleStoreSelectChange(this)">
         <option value="">Select...</option>
-        ${STORE_LOCATIONS.map(s => `<option value="${s}">${s}</option>`).join('')}
+        ${locationOptionsHtml('')}
       </select>
     </div>
     <div class="field">
@@ -1405,6 +1439,7 @@ function renderEditScreen() {
       <div class="photo-type-picker" id="typePicker">
         <button data-type="tlo" onclick="setActiveType('tlo')">TLO / Manifest</button>
         <button data-type="bol" onclick="setActiveType('bol')">Fuel BOL</button>
+        <button data-type="dl" onclick="setActiveType('dl')">Delivery Log</button>
         <button data-type="other" onclick="setActiveType('other')">Other</button>
       </div>
     </div>
@@ -1414,9 +1449,9 @@ function renderEditScreen() {
     </div>
     <div class="field">
       <label>Store / Location (optional)</label>
-      <select id="fieldStore">
+      <select id="fieldStore" onchange="handleStoreSelectChange(this)">
         <option value="">Select...</option>
-        ${STORE_LOCATIONS.map(s => `<option value="${s}" ${record.store_location === s ? 'selected' : ''}>${s}</option>`).join('')}
+        ${locationOptionsHtml(record.store_location)}
       </select>
     </div>
     <div class="field">
@@ -1484,7 +1519,7 @@ function renderEditPhotoStrip() {
 }
 
 async function cyclePhotoType(source, ref, index) {
-  const order = ['tlo', 'bol', 'other'];
+  const order = ['tlo', 'bol', 'dl', 'other'];
 
   if (source === 'pending') {
     const { record } = editContext;
@@ -1929,7 +1964,7 @@ function renderCalendarGrid() {
         }
         return `
           <div class="print-pto-entry">
-            <div class="range">${rangeLabel}</div>
+            <div class="range">${rangeLabel} — ${p.paid_status === 'unpaid' ? 'Unpaid' : 'Paid'}</div>
             ${p.notes ? `<div class="notes">${p.notes}</div>` : ''}
             ${photoImg}
           </div>
@@ -2158,7 +2193,7 @@ function openDaySheet(dateKey) {
       : `${keyToDate(p.start_date).toLocaleDateString()} – ${keyToDate(p.end_date).toLocaleDateString()}`;
     return `
       <div class="pto-card">
-        <div class="pto-card-range">PTO: ${rangeLabel}</div>
+        <div class="pto-card-range">PTO: ${rangeLabel} <span style="font-weight:700; color:var(--gray); font-size:11px; text-transform:uppercase;">· ${p.paid_status === 'unpaid' ? 'Unpaid' : 'Paid'}</span></div>
         ${p.notes ? `<div class="pto-card-notes">${p.notes}</div>` : ''}
         ${photoHtml}
         <div class="load-card-actions">
@@ -2201,6 +2236,7 @@ function openPtoEditor(ptoId, defaultDateKey) {
       start_date: existing.start_date,
       end_date: existing.end_date,
       notes: existing.notes || '',
+      paid_status: existing.paid_status || 'paid',
       existingPhotoPath: existing.confirmation_photo_path,
       newPhotoBlob: null,
       removeExistingPhoto: false
@@ -2211,6 +2247,7 @@ function openPtoEditor(ptoId, defaultDateKey) {
       start_date: defaultDateKey,
       end_date: defaultDateKey,
       notes: '',
+      paid_status: 'paid',
       existingPhotoPath: null,
       newPhotoBlob: null,
       removeExistingPhoto: false
@@ -2244,6 +2281,13 @@ function renderPtoEditorSheet() {
       <div class="field">
         <label>End date</label>
         <input type="date" id="ptoEndDate" value="${ctx.end_date}">
+      </div>
+      <div class="field">
+        <label>Pay status</label>
+        <div class="photo-type-picker">
+          <button type="button" class="${ctx.paid_status === 'paid' ? 'active' : ''}" onclick="setPtoPaidStatus('paid')">Paid</button>
+          <button type="button" class="${ctx.paid_status === 'unpaid' ? 'active' : ''}" onclick="setPtoPaidStatus('unpaid')">Unpaid</button>
+        </div>
       </div>
       <div class="field">
         <label>Notes (optional)</label>
@@ -2285,6 +2329,18 @@ function renderPtoEditorSheetInPlace() {
   renderPtoEditorSheet();
 }
 
+function setPtoPaidStatus(status) {
+  const startVal = document.getElementById('ptoStartDate')?.value;
+  const endVal = document.getElementById('ptoEndDate')?.value;
+  const notesVal = document.getElementById('ptoNotes')?.value;
+  if (startVal) ptoEditContext.start_date = startVal;
+  if (endVal) ptoEditContext.end_date = endVal;
+  if (notesVal !== undefined) ptoEditContext.notes = notesVal;
+  ptoEditContext.paid_status = status;
+  closePtoEditor();
+  renderPtoEditorSheet();
+}
+
 function closePtoEditor() {
   const overlay = document.getElementById('ptoEditorOverlay');
   if (overlay) overlay.remove();
@@ -2320,12 +2376,12 @@ async function savePto() {
 
     if (ctx.id) {
       const { error } = await sb.from('pto_entries').update({
-        start_date, end_date, notes, confirmation_photo_path: photoPath
+        start_date, end_date, notes, paid_status: ctx.paid_status, confirmation_photo_path: photoPath
       }).eq('id', ctx.id);
       if (error) throw error;
     } else {
       const { error } = await sb.from('pto_entries').insert({
-        start_date, end_date, notes, confirmation_photo_path: photoPath
+        start_date, end_date, notes, paid_status: ctx.paid_status, confirmation_photo_path: photoPath
       });
       if (error) throw error;
     }
@@ -2382,6 +2438,7 @@ window.addEventListener('offline', updateStatusPill);
 (async function init() {
   applyTheme(localStorage.getItem('wtgTheme') || 'black');
   await openDB();
+  await loadLocations();
   updateStatusPill();
   renderHome();
   if (navigator.onLine) trySync();
