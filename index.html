@@ -1931,7 +1931,10 @@ function renderCalendarGrid() {
     const key = dateToKey(d);
     const off = isOffDay(d);
     const pay = isPayday(d);
-    const pto = ptoForDate(key).length > 0;
+    const ptoEntriesForDay = ptoForDate(key);
+    const pto = ptoEntriesForDay.length > 0;
+    const allUnpaid = pto && ptoEntriesForDay.every(p => p.paid_status === 'unpaid');
+    const ptoLabel = allUnpaid ? 'U-PTO' : 'PTO';
     const classes = ['cal-day'];
     if (key === todayKey) classes.push('today');
 
@@ -1940,10 +1943,10 @@ function renderCalendarGrid() {
     if (pto && pay) {
       // PTO already means "not working" — combine with payday, no need to also show the plain off-day color
       inlineStyle = `style="background: linear-gradient(135deg, rgba(192,57,43,0.22) 50%, rgba(30,122,50,0.35) 50%); color: var(--black);"`;
-      label = 'PTO/PAY';
+      label = `${ptoLabel}/PAY`;
     } else if (pto) {
       classes.push('pto-day');
-      label = 'PTO';
+      label = ptoLabel;
     } else if (off && pay) {
       inlineStyle = `style="background: linear-gradient(135deg, rgba(20,22,26,0.18) 50%, rgba(30,122,50,0.35) 50%); color: var(--black);"`;
       label = 'OFF/PAY';
