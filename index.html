@@ -612,6 +612,30 @@ function idbGetAll(storeName) {
 }
 
 /* =========================================================
+   BLOB STORAGE HELPERS
+   Safari has a known bug where Blobs stored directly in IndexedDB
+   can come back empty/corrupted after time or app restarts. Storing
+   the raw bytes (ArrayBuffer) instead and rebuilding the Blob when
+   needed avoids this entirely.
+   ========================================================= */
+async function blobToStorable(blob) {
+  const buffer = await blob.arrayBuffer();
+  return { buffer, mimeType: blob.type || 'image/jpeg' };
+}
+
+function storableToBlob(storable) {
+  return new Blob([storable.buffer], { type: storable.mimeType || 'image/jpeg' });
+}
+
+// Handles both the new format (buffer+mimeType) and older records saved
+// before this fix (which still have a raw .blob) so nothing gets stuck.
+function getUsablePhotoBlob(photo) {
+  if (photo.blob) return photo.blob;
+  if (photo.buffer) return storableToBlob(photo);
+  return null;
+}
+
+/* =========================================================
    STATE
    ========================================================= */
 let currentScreen = 'home';
@@ -991,10 +1015,10 @@ async function saveLoad() {
     store_location: document.getElementById('fieldStore').value || null,
     store_number: document.getElementById('fieldStoreNumber').value || null,
     notes: document.getElementById('fieldNotes').value || null,
-    photos: await Promise.all(draftPhotos.map(async p => ({
-      type: p.type,
-      blob: p.blob
-    })))
+    photos: await Promise.all(draftPhotos.map(async p => {
+      const storable = await blobToStorable(p.blob);
+      return { type: p.type, buffer: storable.buffer, mimeType: storable.mimeType };
+    }))
   };
   await idbPut('pendingLoads', record);
   draftPhotos = [];
@@ -1007,6 +1031,19 @@ async function saveLoad() {
    SYNC — uploads pending loads to Supabase, then frees local storage
    ========================================================= */
 let isSyncing = false;
+
+async function dropBadPhotosAndSync(localId) {
+  if (!confirm('This will remove the unreadable photo(s) from this load on this device so the rest can finish syncing. Continue?')) return;
+  const all = await idbGetAll('pendingLoads');
+  const record = all.find(r => r.localId === localId);
+  if (!record) return;
+  record.photos.forEach(ph => {
+    if (ph.uploadError) ph.deleted = true;
+  });
+  await idbPut('pendingLoads', record);
+  showToast('Removed unreadable photo, finishing sync...');
+  trySync();
+}
 
 async function trySync() {
   if (isSyncing || !navigator.onLine) return;
@@ -1022,38 +1059,69 @@ async function trySync() {
 
   for (const record of pending) {
     try {
-      const { data: loadRow, error: loadErr } = await sb
-        .from('loads')
-        .insert({
-          created_at: record.created_at,
-          load_date: record.load_date,
-          load_number: record.load_number,
-          store_location: record.store_location,
-          store_number: record.store_number,
-          notes: record.notes
-        })
-        .select()
-        .single();
-      if (loadErr) throw loadErr;
+      // If we already created the load row on a previous attempt, reuse it
+      // instead of inserting a second, duplicate load.
+      let loadRowId = record.remoteLoadId;
+      if (!loadRowId) {
+        const { data: loadRow, error: loadErr } = await sb
+          .from('loads')
+          .insert({
+            created_at: record.created_at,
+            load_date: record.load_date,
+            load_number: record.load_number,
+            store_location: record.store_location,
+            store_number: record.store_number,
+            notes: record.notes
+          })
+          .select()
+          .single();
+        if (loadErr) throw loadErr;
+        loadRowId = loadRow.id;
+        record.remoteLoadId = loadRowId;
+        await idbPut('pendingLoads', record); // save progress immediately
+      }
 
+      let allPhotosOk = true;
       for (const photo of record.photos) {
-        const path = `${loadRow.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
-        const { error: upErr } = await sb.storage.from('load-photos').upload(path, photo.blob, {
-          contentType: 'image/jpeg'
+        if (photo.uploaded || photo.deleted) continue; // already synced, or removed via Trash/fix-it
+
+        let blob;
+        try {
+          blob = getUsablePhotoBlob(photo);
+          if (!blob || blob.size === 0) throw new Error('Photo data is missing or empty on this device');
+        } catch (blobErr) {
+          // This one photo is unreadable (e.g. Safari storage corruption) —
+          // skip it, but don't let it block the rest of the load forever.
+          console.error('Unreadable photo, skipping', blobErr);
+          photo.uploadError = blobErr.message;
+          allPhotosOk = false;
+          continue;
+        }
+
+        const path = `${loadRowId}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+        const { error: upErr } = await sb.storage.from('load-photos').upload(path, blob, {
+          contentType: photo.mimeType || 'image/jpeg'
         });
         if (upErr) throw upErr;
 
         const { error: photoRowErr } = await sb.from('load_photos').insert({
-          load_id: loadRow.id,
+          load_id: loadRowId,
           photo_type: photo.type,
           storage_path: path
         });
         if (photoRowErr) throw photoRowErr;
+
+        photo.uploaded = true;
+        await idbPut('pendingLoads', record); // save progress after each photo
       }
 
-      // Success: remove from local pending queue — this is what frees phone storage
-      await idbDelete('pendingLoads', record.localId);
-      successCount++;
+      if (allPhotosOk) {
+        // Success: remove from local pending queue — this is what frees phone storage
+        await idbDelete('pendingLoads', record.localId);
+        successCount++;
+      } else {
+        lastError = new Error('One or more photos on a load couldn\'t be read from this device and were skipped');
+      }
     } catch (err) {
       console.error('Sync failed for', record.localId, err);
       lastError = err;
@@ -1180,7 +1248,7 @@ async function getLoadFullData(source, id) {
       store_number: record.store_number,
       notes: record.notes,
       created_at: record.created_at,
-      photos: record.photos.filter(p => !p.deleted).map(p => ({ type: p.type, blob: p.blob }))
+      photos: record.photos.filter(p => !p.deleted).map(p => ({ type: p.type, blob: getUsablePhotoBlob(p) }))
     };
   } else {
     const { data: loadRow } = await sb.from('loads').select('*').eq('id', id).single();
@@ -1354,9 +1422,14 @@ async function renderLoadsList() {
   window._viewerCtxRegistry = [];
 
   pending.forEach(p => {
+    const hasBadPhoto = p.photos.some(ph => !ph.deleted && ph.uploadError);
     const thumbs = p.photos.map((ph, i) => {
       if (ph.deleted) return null;
-      const url = URL.createObjectURL(ph.blob);
+      const blob = getUsablePhotoBlob(ph);
+      if (!blob || blob.size === 0) {
+        return `<div class="list-thumb" style="display:flex;align-items:center;justify-content:center;background:#fdecec;color:var(--red);font-size:9px;font-weight:800;text-align:center;padding:4px;">UNREADABLE</div>`;
+      }
+      const url = URL.createObjectURL(blob);
       const ctxIdx = window._viewerCtxRegistry.push({ kind: 'pending', localId: p.localId, photoIndex: i }) - 1;
       return `<div class="list-thumb"><img src="${url}" onclick="openPhotoViewer('${url}', '${(p.load_number || 'load')}-${ph.type}-${i}.jpg', window._viewerCtxRegistry[${ctxIdx}])"><span class="tag">${ph.type}</span></div>`;
     }).filter(Boolean).join('');
@@ -1371,6 +1444,11 @@ async function renderLoadsList() {
         </div>
         <div class="load-card-meta">${[p.store_location, p.store_number, p.notes].filter(Boolean).join(' · ') || 'No notes'}</div>
         <div class="load-card-photos">${thumbs}</div>
+        ${hasBadPhoto ? `
+        <div class="pending-banner" style="margin-top:10px;">
+          <span>A photo on this load can't be read from this device</span>
+          <button onclick="dropBadPhotosAndSync('${p.localId}')">Finish anyway</button>
+        </div>` : ''}
         <div class="load-card-actions">
           <button class="edit-action" onclick="openLoadShareMenu('pending', '${p.localId}')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
@@ -1508,7 +1586,7 @@ function renderEditPhotoStrip() {
   if (source === 'pending') {
     existingHtml = record.photos.map((p, i) => {
       if (p.deleted) return null;
-      const url = URL.createObjectURL(p.blob);
+      const url = URL.createObjectURL(getUsablePhotoBlob(p));
       const ctxIdx = window._viewerCtxRegistry.push({ kind: 'pending', localId: id, photoIndex: i }) - 1;
       return `
         <div class="photo-thumb" onclick="openPhotoViewer('${url}', 'photo-${i}.jpg', window._viewerCtxRegistry[${ctxIdx}])">
@@ -1590,7 +1668,11 @@ async function saveEditedLoad() {
       record.store_location = store_location;
       record.store_number = store_number;
       record.notes = notes;
-      record.photos = record.photos.concat(draftPhotos.map(p => ({ type: p.type, blob: p.blob })));
+      const newStorable = await Promise.all(draftPhotos.map(async p => {
+        const storable = await blobToStorable(p.blob);
+        return { type: p.type, buffer: storable.buffer, mimeType: storable.mimeType };
+      }));
+      record.photos = record.photos.concat(newStorable);
       await idbPut('pendingLoads', record);
     } else {
       const { error: updateErr } = await sb.from('loads').update({
@@ -1725,7 +1807,7 @@ async function renderTrashScreen() {
   });
 
   trashedPendingPhotos.forEach(({ record, photo, index }) => {
-    const url = URL.createObjectURL(photo.blob);
+    const url = URL.createObjectURL(getUsablePhotoBlob(photo));
     html += `
       <div class="load-card">
         <div class="load-card-top">
