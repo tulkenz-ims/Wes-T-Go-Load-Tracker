@@ -1107,7 +1107,8 @@ async function trySync() {
         const { error: photoRowErr } = await sb.from('load_photos').insert({
           load_id: loadRowId,
           photo_type: photo.type,
-          storage_path: path
+          storage_path: path,
+          load_number: record.load_number
         });
         if (photoRowErr) throw photoRowErr;
 
@@ -1687,7 +1688,7 @@ async function saveEditedLoad() {
         });
         if (upErr) throw upErr;
         const { error: rowErr } = await sb.from('load_photos').insert({
-          load_id: id, photo_type: photo.type, storage_path: path
+          load_id: id, photo_type: photo.type, storage_path: path, load_number
         });
         if (rowErr) throw rowErr;
       }
