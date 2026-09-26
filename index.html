@@ -1017,6 +1017,9 @@ async function trySync() {
   document.getElementById('statusDot').className = 'dot syncing';
   document.getElementById('statusText').textContent = 'Syncing...';
 
+  let lastError = null;
+  let successCount = 0;
+
   for (const record of pending) {
     try {
       const { data: loadRow, error: loadErr } = await sb
@@ -1050,9 +1053,10 @@ async function trySync() {
 
       // Success: remove from local pending queue — this is what frees phone storage
       await idbDelete('pendingLoads', record.localId);
+      successCount++;
     } catch (err) {
       console.error('Sync failed for', record.localId, err);
-      // Leave it in the queue, retry next time
+      lastError = err;
     }
   }
 
@@ -1060,7 +1064,11 @@ async function trySync() {
   updateStatusPill();
   if (currentScreen === 'home') renderHome();
   if (currentScreen === 'loads') renderLoadsList();
-  showToast('Sync complete');
+  if (lastError) {
+    showToast('Sync error: ' + (lastError.message || lastError));
+  } else if (successCount > 0) {
+    showToast('Sync complete');
+  }
 }
 
 /* =========================================================
